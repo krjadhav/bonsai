@@ -17,46 +17,6 @@
   const seenThisSession = new Set();
 
   // --------------------------------------------------------------------------
-  // Hovering progress badge (bottom-right of viewport)
-  // --------------------------------------------------------------------------
-  function mountBadge() {
-    if (document.getElementById("bonsai-badge")) return;
-    const el = document.createElement("div");
-    el.id = "bonsai-badge";
-    el.innerHTML = `
-      <div class="bonsai-badge__row">
-        <div class="bonsai-badge__logo" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="16" height="16">
-            <circle cx="12" cy="9" r="5" fill="#4ea76d"/>
-            <circle cx="7" cy="11" r="3.5" fill="#5bbd7e"/>
-            <circle cx="17" cy="11" r="3.5" fill="#3f8f5a"/>
-            <rect x="11" y="12" width="2" height="7" rx="1" fill="#5b3a1e"/>
-          </svg>
-        </div>
-        <div class="bonsai-badge__text">
-          <div class="bonsai-badge__title">Bonsai</div>
-          <div class="bonsai-badge__sub" id="bonsai-badge-sub">0 rated · growing</div>
-        </div>
-      </div>
-      <div class="bonsai-badge__bar">
-        <div class="bonsai-badge__fill" id="bonsai-badge-fill"></div>
-      </div>
-    `;
-    document.documentElement.appendChild(el);
-  }
-
-  async function updateBadge() {
-    const { [STORAGE_KEY]: captures = [] } = await chrome.storage.local.get(STORAGE_KEY);
-    const rated = captures.length; // storage holds decided only
-    const seen = seenThisSession.size;
-    const confidence = Math.min(100, Math.round((rated / 50) * 100));
-    const fill = document.getElementById("bonsai-badge-fill");
-    const sub = document.getElementById("bonsai-badge-sub");
-    if (fill) fill.style.width = confidence + "%";
-    if (sub) sub.textContent = `${rated} rated · ${seen} seen`;
-  }
-
-  // --------------------------------------------------------------------------
   // Extract tweet payload from an <article> node
   // --------------------------------------------------------------------------
   function extractTweet(article) {
@@ -120,7 +80,6 @@
     else captures[idx] = { ...captures[idx], ...entry };
     if (captures.length > MAX_LOCAL) captures.length = MAX_LOCAL;
     await chrome.storage.local.set({ [STORAGE_KEY]: captures });
-    updateBadge();
     chrome.runtime.sendMessage({ type: "bonsai:decision", payload: entry }).catch(() => {});
   }
 
@@ -130,7 +89,6 @@
     if (idx === -1) return;
     captures.splice(idx, 1);
     await chrome.storage.local.set({ [STORAGE_KEY]: captures });
-    updateBadge();
   }
 
   // --------------------------------------------------------------------------
@@ -161,7 +119,6 @@
     }
 
     seenThisSession.add(payload.postId);
-    updateBadge();
 
     // Header strip — "Rate to teach Bonsai" + thumbs up/down
     const header = document.createElement("div");
@@ -279,8 +236,6 @@
   });
 
   function boot() {
-    mountBadge();
-    updateBadge();
     scan();
     observer.observe(document.body, { childList: true, subtree: true });
   }
@@ -290,8 +245,4 @@
   } else {
     boot();
   }
-
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === "local" && changes[STORAGE_KEY]) updateBadge();
-  });
 })();
