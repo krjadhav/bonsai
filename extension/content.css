@@ -1,4 +1,5 @@
-/* Bonsai — injected UI on X. Scoped with #bonsai-badge / .bonsai-* to avoid X's styles. */
+/* Bonsai — injected UI on X. Scoped with #bonsai-badge / .bonsai-* / article[data-bonsai-state]
+   to avoid X's styles. */
 
 #bonsai-badge {
   position: fixed;
@@ -61,54 +62,124 @@
   border-radius: 999px;
 }
 
-/* ------- Per-tweet Yes/No row ------- */
-.bonsai-bar {
+/* ------- Icons ------- */
+.bonsai-ico {
+  width: 14px; height: 14px;
+  display: inline-block;
+  flex: none;
+}
+.bonsai-ico--thumb { width: 15px; height: 15px; }
+.bonsai-ico--flip { transform: scaleY(-1); }
+
+/* ------- Per-tweet header: title + thumb buttons ------- */
+.bonsai-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px 2px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px 6px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 12px;
+  font-size: 13px;
 }
 
-.bonsai-btn {
+.bonsai-header__title {
+  color: #8a9aa1;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+}
+
+.bonsai-thumbs {
+  display: flex;
+  gap: 8px;
+}
+
+.bonsai-thumb {
   all: unset;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 6px 12px;
   border-radius: 999px;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
   border: 1px solid transparent;
-  background: rgba(255, 255, 255, 0.04);
-  color: inherit;
-  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s, color 0.15s;
+  color: #9ab2a1;
 }
-.bonsai-btn:hover { background: rgba(78, 167, 109, 0.12); }
-.bonsai-btn:active { transform: translateY(1px); }
+.bonsai-thumb:hover { background: rgba(255, 255, 255, 0.04); }
+.bonsai-thumb:active { transform: translateY(1px); }
 
-.bonsai-btn__dot {
-  display: inline-block;
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.6;
+.bonsai-thumb--yes {
+  color: #4ea76d;
+  border-color: rgba(78, 167, 109, 0.4);
+}
+.bonsai-thumb--yes:hover { background: rgba(78, 167, 109, 0.12); }
+.bonsai-thumb--yes.is-active {
+  background: #1e7a3e;
+  color: #ffffff;
+  border-color: #27a04f;
 }
 
-.bonsai-btn--yes { color: #3f8f5a; border-color: rgba(78, 167, 109, 0.3); }
-.bonsai-btn--yes:hover { background: rgba(78, 167, 109, 0.18); }
-.bonsai-btn--no { color: #c76c57; border-color: rgba(199, 108, 87, 0.3); }
-.bonsai-btn--no:hover { background: rgba(199, 108, 87, 0.15); }
+.bonsai-thumb--no {
+  color: #e8745a;
+  border-color: rgba(232, 116, 90, 0.45);
+}
+.bonsai-thumb--no:hover { background: rgba(232, 116, 90, 0.1); }
+.bonsai-thumb--no.is-active {
+  background: rgba(232, 116, 90, 0.18);
+  border-color: #e8745a;
+  color: #ffb49f;
+}
 
-.bonsai-state {
+/* ------- Per-tweet footer: status + Remove ------- */
+.bonsai-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px 10px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 12px;
+}
+
+.bonsai-footer__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: #8a9aa1;
-  font-size: 11px;
-  margin-left: 4px;
+  font-size: 12px;
 }
-.bonsai-state[data-state="yes"] { color: #4ea76d; }
-.bonsai-state[data-state="no"] { color: #c76c57; }
+.bonsai-footer__state[data-state="yes"] { color: #4ea76d; }
+.bonsai-footer__state[data-state="no"] { color: #e8745a; }
 
-.bonsai-bar--yes .bonsai-btn--yes { background: rgba(78, 167, 109, 0.2); }
-.bonsai-bar--no .bonsai-btn--no { background: rgba(199, 108, 87, 0.18); }
+.bonsai-footer__remove {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #9ab2a1;
+  font-size: 12px;
+  border: 1px solid #2a3a2f;
+  background: transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+.bonsai-footer__remove:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: #3a4a3f;
+  color: #c5d3cb;
+}
+
+/* Subtle frame tint when a decision is set — uses outline so no layout shift. */
+article[data-bonsai-state="yes"] {
+  outline: 1px solid rgba(78, 167, 109, 0.35);
+  outline-offset: -1px;
+  border-radius: 12px;
+}
+article[data-bonsai-state="no"] {
+  outline: 1px solid rgba(232, 116, 90, 0.3);
+  outline-offset: -1px;
+  border-radius: 12px;
+}

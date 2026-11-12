@@ -40,22 +40,21 @@ function renderRow(cap, tpl) {
 async function render() {
   const { [STORAGE_KEY]: captures = [] } = await chrome.storage.local.get(STORAGE_KEY);
 
-  const total = captures.length;
-  const yes = captures.filter((c) => c.decision === "yes").length;
-  const no = captures.filter((c) => c.decision === "no").length;
-  const pending = total - yes - no;
+  // Storage only holds posts the user has rated. Filter defensively anyway.
+  const rated = captures.filter((c) => c.decision === "yes" || c.decision === "no");
 
-  $("statTotal").textContent = total;
+  const yes = rated.filter((c) => c.decision === "yes").length;
+  const no = rated.filter((c) => c.decision === "no").length;
+
+  $("statTotal").textContent = rated.length;
   $("statYes").textContent = yes;
   $("statNo").textContent = no;
-  $("statPending").textContent = pending;
 
   const list = $("list");
   list.innerHTML = "";
 
-  const filtered = captures.filter((c) => {
+  const filtered = rated.filter((c) => {
     if (currentFilter === "all") return true;
-    if (currentFilter === "pending") return !c.decision;
     return c.decision === currentFilter;
   });
 
@@ -63,8 +62,8 @@ async function render() {
     const empty = document.createElement("div");
     empty.className = "empty";
     empty.textContent =
-      total === 0
-        ? "No captures yet. Open x.com and scroll."
+      rated.length === 0
+        ? "No ratings yet. Hit the thumbs on any post on x.com."
         : "Nothing matches this filter.";
     list.appendChild(empty);
     return;

@@ -27,7 +27,7 @@ from .schemas import PostIn, PostOut
 
 log = logging.getLogger("bonsai")
 
-app = FastAPI(title="Bonsai ingest", version="0.2.0")
+app = FastAPI(title="Bonsai ingest", version="0.3.0")
 
 settings = get_settings()
 app.add_middleware(

@@ -20,27 +20,22 @@
   <section class="summary">
     <div class="stat">
       <div class="stat__num" id="statTotal">0</div>
-      <div class="stat__label">captured</div>
+      <div class="stat__label">rated</div>
     </div>
     <div class="stat">
       <div class="stat__num" id="statYes">0</div>
-      <div class="stat__label">yes</div>
+      <div class="stat__label">more like this</div>
     </div>
     <div class="stat">
       <div class="stat__num" id="statNo">0</div>
-      <div class="stat__label">no</div>
-    </div>
-    <div class="stat">
-      <div class="stat__num" id="statPending">0</div>
-      <div class="stat__label">pending</div>
+      <div class="stat__label">less like this</div>
     </div>
   </section>
 
   <section class="filters" aria-label="Filter captures">
     <label class="fchip"><input type="radio" name="f" value="all" checked /> All</label>
-    <label class="fchip"><input type="radio" name="f" value="yes" /> Yes</label>
-    <label class="fchip"><input type="radio" name="f" value="no" /> No</label>
-    <label class="fchip"><input type="radio" name="f" value="pending" /> Pending</label>
+    <label class="fchip"><input type="radio" name="f" value="yes" /> More</label>
+    <label class="fchip"><input type="radio" name="f" value="no" /> Less</label>
   </section>
 
   <main class="list" id="list"></main>

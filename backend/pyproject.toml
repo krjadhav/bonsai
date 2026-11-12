@@ -1,6 +1,6 @@
 [project]
 name = "bonsai-backend"
-version = "0.2.0"
+version = "0.3.0"
 description = "Bonsai feed filter — ingest API on Cloud Run backed by Firestore"
 readme = "README.md"
 requires-python = ">=3.11"

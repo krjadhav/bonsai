@@ -154,7 +154,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         case "bonsai:signOut":
           sendResponse(await signOut());
           break;
-        case "bonsai:capture":
         case "bonsai:decision":
           sendResponse(await trySendCapture(msg.payload));
           break;

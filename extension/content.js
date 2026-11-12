@@ -1,9 +1,10 @@
 // Bonsai content script — runs on x.com / twitter.com
-// Responsibilities:
-//  1. Walk the timeline and attach Yes/No controls to every visible tweet (article).
-//  2. Capture tweet contents (text + author + media presence) into chrome.storage.local.
-//  3. Show a hovering progress badge that reflects how many posts the user has rated.
-//  4. Keep up with the virtualized timeline via MutationObserver + IntersectionObserver.
+//
+// Storage policy: only posts the user explicitly rates (Yes/No) land in
+// chrome.storage.local. Undecided impressions are tracked in-memory per tab
+// for the progress badge only; they never hit storage or the backend. This
+// keeps the validation sidebar focused on real teaching signal and keeps
+// Firestore writes proportional to interactions, not scrolling.
 
 (() => {
   if (window.__bonsaiInjected) return;
@@ -11,10 +12,12 @@
 
   const PROCESSED = "bonsaiProcessed";
   const STORAGE_KEY = "bonsaiCaptures";
-  const MAX_LOCAL = 500; // cap the local queue so we don't bloat storage
+  const MAX_LOCAL = 500;
+
+  const seenThisSession = new Set();
 
   // --------------------------------------------------------------------------
-  // Progress badge — hovering indicator in the bottom-right of the viewport
+  // Hovering progress badge (bottom-right of viewport)
   // --------------------------------------------------------------------------
   function mountBadge() {
     if (document.getElementById("bonsai-badge")) return;
@@ -44,8 +47,8 @@
 
   async function updateBadge() {
     const { [STORAGE_KEY]: captures = [] } = await chrome.storage.local.get(STORAGE_KEY);
-    const rated = captures.filter((c) => c.decision === "yes" || c.decision === "no").length;
-    const seen = captures.length;
+    const rated = captures.length; // storage holds decided only
+    const seen = seenThisSession.size;
     const confidence = Math.min(100, Math.round((rated / 50) * 100));
     const fill = document.getElementById("bonsai-badge-fill");
     const sub = document.getElementById("bonsai-badge-sub");
@@ -103,48 +106,49 @@
   }
 
   // --------------------------------------------------------------------------
-  // Save / update capture in chrome.storage.local (dedup on postId)
+  // Storage mutations — only decided posts live here
   // --------------------------------------------------------------------------
-  async function saveCapture(payload) {
-    if (!payload.postId) return;
+  async function persistDecision(payload, decision) {
     const { [STORAGE_KEY]: captures = [] } = await chrome.storage.local.get(STORAGE_KEY);
     const idx = captures.findIndex((c) => c.postId === payload.postId);
-    if (idx === -1) {
-      captures.unshift(payload);
-    } else {
-      // keep earliest capture metadata but refresh decision if provided
-      const prev = captures[idx];
-      captures[idx] = {
-        ...prev,
-        ...payload,
-        decision: payload.decision ?? prev.decision,
-        capturedAt: prev.capturedAt,
-      };
-    }
+    const entry = {
+      ...payload,
+      decision,
+      decidedAt: new Date().toISOString(),
+    };
+    if (idx === -1) captures.unshift(entry);
+    else captures[idx] = { ...captures[idx], ...entry };
     if (captures.length > MAX_LOCAL) captures.length = MAX_LOCAL;
     await chrome.storage.local.set({ [STORAGE_KEY]: captures });
     updateBadge();
-
-    // Fire-and-forget send to backend (background decides whether to actually POST).
-    chrome.runtime.sendMessage({ type: "bonsai:capture", payload }).catch(() => {});
+    chrome.runtime.sendMessage({ type: "bonsai:decision", payload: entry }).catch(() => {});
   }
 
-  async function setDecision(postId, decision) {
+  async function removeDecision(postId) {
     const { [STORAGE_KEY]: captures = [] } = await chrome.storage.local.get(STORAGE_KEY);
     const idx = captures.findIndex((c) => c.postId === postId);
     if (idx === -1) return;
-    captures[idx].decision = decision;
-    captures[idx].decidedAt = new Date().toISOString();
+    captures.splice(idx, 1);
     await chrome.storage.local.set({ [STORAGE_KEY]: captures });
     updateBadge();
-    chrome.runtime.sendMessage({
-      type: "bonsai:decision",
-      payload: captures[idx],
-    }).catch(() => {});
   }
 
   // --------------------------------------------------------------------------
-  // Inject Yes/No pills onto each tweet
+  // SVG icons — small, inlined so no asset requests on X
+  // --------------------------------------------------------------------------
+  const ICON_CHECK =
+    '<svg class="bonsai-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  const ICON_X =
+    '<svg class="bonsai-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  const ICON_THUMB_UP =
+    '<svg class="bonsai-ico bonsai-ico--thumb" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73V10z"/></svg>';
+  const ICON_THUMB_DOWN =
+    '<svg class="bonsai-ico bonsai-ico--thumb bonsai-ico--flip" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73V10z"/></svg>';
+  const ICON_TRASH =
+    '<svg class="bonsai-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+
+  // --------------------------------------------------------------------------
+  // Inject rate controls onto each tweet
   // --------------------------------------------------------------------------
   function attachControls(article) {
     if (article.dataset[PROCESSED]) return;
@@ -152,53 +156,85 @@
 
     const payload = extractTweet(article);
     if (!payload.postId) {
-      // Can't rate without an id — skip but allow retry if DOM swaps in.
       delete article.dataset[PROCESSED];
       return;
     }
-    saveCapture(payload);
 
-    const bar = document.createElement("div");
-    bar.className = "bonsai-bar";
-    bar.innerHTML = `
-      <button class="bonsai-btn bonsai-btn--yes" type="button" aria-label="More like this">
-        <span class="bonsai-btn__dot"></span> Yes
-      </button>
-      <button class="bonsai-btn bonsai-btn--no" type="button" aria-label="Less like this">
-        <span class="bonsai-btn__dot"></span> No
-      </button>
-      <span class="bonsai-state" data-state="pending">Rate to teach Bonsai</span>
+    seenThisSession.add(payload.postId);
+    updateBadge();
+
+    // Header strip — "Rate to teach Bonsai" + thumbs up/down
+    const header = document.createElement("div");
+    header.className = "bonsai-header";
+    header.innerHTML = `
+      <span class="bonsai-header__title">Rate to teach Bonsai</span>
+      <div class="bonsai-thumbs" role="group" aria-label="Rate this post">
+        <button type="button" class="bonsai-thumb bonsai-thumb--yes" aria-label="More like this" title="More like this">
+          ${ICON_CHECK}${ICON_THUMB_UP}
+        </button>
+        <button type="button" class="bonsai-thumb bonsai-thumb--no" aria-label="Less like this" title="Less like this">
+          ${ICON_X}${ICON_THUMB_DOWN}
+        </button>
+      </div>
     `;
-    bar.addEventListener("click", (ev) => {
-      const btn = ev.target.closest(".bonsai-btn");
-      if (!btn) return;
+
+    // Footer — status + Remove
+    const footer = document.createElement("div");
+    footer.className = "bonsai-footer";
+    footer.innerHTML = `
+      <span class="bonsai-footer__state" data-state="pending">Awaiting your rating</span>
+      <button type="button" class="bonsai-footer__remove" aria-label="Remove rating" hidden>
+        ${ICON_TRASH}<span>Remove</span>
+      </button>
+    `;
+
+    const btnYes = header.querySelector(".bonsai-thumb--yes");
+    const btnNo = header.querySelector(".bonsai-thumb--no");
+    const state = footer.querySelector(".bonsai-footer__state");
+    const btnRemove = footer.querySelector(".bonsai-footer__remove");
+
+    function paint(decision) {
+      article.dataset.bonsaiState = decision || "pending";
+      btnYes.classList.toggle("is-active", decision === "yes");
+      btnNo.classList.toggle("is-active", decision === "no");
+      state.dataset.state = decision || "pending";
+      if (decision === "yes") {
+        state.innerHTML = `${ICON_CHECK}<span>More like this</span>`;
+      } else if (decision === "no") {
+        state.innerHTML = `${ICON_X}<span>Less like this</span>`;
+      } else {
+        state.textContent = "Awaiting your rating";
+      }
+      btnRemove.hidden = !decision;
+    }
+
+    function handleChoose(ev, decision) {
       ev.preventDefault();
       ev.stopPropagation();
-      const decision = btn.classList.contains("bonsai-btn--yes") ? "yes" : "no";
-      bar.querySelector(".bonsai-state").dataset.state = decision;
-      bar.querySelector(".bonsai-state").textContent =
-        decision === "yes" ? "Saved — more like this" : "Saved — less like this";
-      bar.classList.remove("bonsai-bar--yes", "bonsai-bar--no");
-      bar.classList.add(`bonsai-bar--${decision}`);
-      setDecision(payload.postId, decision);
+      if (article.dataset.bonsaiState === decision) return;
+      paint(decision);
+      persistDecision(payload, decision);
+    }
+
+    btnYes.addEventListener("click", (e) => handleChoose(e, "yes"));
+    btnNo.addEventListener("click", (e) => handleChoose(e, "no"));
+    btnRemove.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      paint(null);
+      removeDecision(payload.postId);
     });
 
-    // Place controls directly inside the article, before the native action row.
-    // If we can't find a good anchor, append to the article so they still show.
-    const actionBar = article.querySelector('[role="group"]');
-    if (actionBar && actionBar.parentElement) {
-      actionBar.parentElement.insertBefore(bar, actionBar);
-    } else {
-      article.appendChild(bar);
-    }
+    article.insertBefore(header, article.firstChild);
+    article.appendChild(footer);
+    paint(null);
   }
 
   // --------------------------------------------------------------------------
-  // Observer wiring — X virtualizes the timeline aggressively.
+  // Observer wiring — X virtualizes the timeline aggressively
   // --------------------------------------------------------------------------
   function scan(root = document) {
-    const articles = root.querySelectorAll('article[role="article"]');
-    articles.forEach(attachControls);
+    root.querySelectorAll('article[role="article"]').forEach(attachControls);
   }
 
   const observer = new MutationObserver((muts) => {
@@ -224,7 +260,6 @@
     boot();
   }
 
-  // Keep badge in sync when sidebar / background mutate storage elsewhere.
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && changes[STORAGE_KEY]) updateBadge();
   });
