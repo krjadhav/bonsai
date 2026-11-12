@@ -2,24 +2,32 @@
 
 Routes:
   GET  /health         -> liveness check, no auth
-  POST /posts          -> ingest a single capture (auth required)
+  POST /posts          -> upsert a single capture (auth required)
 
-Intentionally single-endpoint: the extension sends captures one at a time, the
-server dedupes via a unique(user_email, post_id) index so repeated scrolls
-don't bloat the table.
+Design notes:
+  * One Firestore document per (user_sub, post_id). Upsert via set(merge=True)
+    so repeated scrolls cost one write per unique post, not one per scroll.
+  * Stateless — Cloud Run scales from zero. Firestore client is reused via
+    lru_cache; cold starts pay one connection setup.
 """
 
 from __future__ import annotations
 
+import logging
+from datetime import UTC, datetime
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from google.cloud.firestore import SERVER_TIMESTAMP
 
 from .auth import AuthUser, current_user
 from .config import get_settings
-from .db import TABLE, get_client
+from .db import collection_ref, doc_id
 from .schemas import PostIn, PostOut
 
-app = FastAPI(title="Bonsai ingest", version="0.1.0")
+log = logging.getLogger("bonsai")
+
+app = FastAPI(title="Bonsai ingest", version="0.2.0")
 
 settings = get_settings()
 app.add_middleware(
@@ -41,7 +49,8 @@ async def ingest_post(
     payload: PostIn,
     user: AuthUser = Depends(current_user),
 ) -> PostOut:
-    row = {
+    now = datetime.now(UTC)
+    doc = {
         "user_email": user.email,
         "user_sub": user.sub,
         "post_id": payload.post_id,
@@ -49,18 +58,19 @@ async def ingest_post(
         "author_name": payload.author_name,
         "author_handle": payload.author_handle,
         "content": payload.content,
-        "tweeted_at": payload.tweeted_at.isoformat() if payload.tweeted_at else None,
+        "tweeted_at": payload.tweeted_at,
         "has_media": payload.has_media,
         "media_types": payload.media_types or [],
         "decision": payload.decision,
-        "captured_at": payload.captured_at.isoformat() if payload.captured_at else None,
-        "decided_at": payload.decided_at.isoformat() if payload.decided_at else None,
+        "captured_at": payload.captured_at or now,
+        "decided_at": payload.decided_at,
+        "updated_at": SERVER_TIMESTAMP,
     }
     try:
-        client = get_client()
-        resp = client.table(TABLE).upsert(row, on_conflict="user_email,post_id").execute()
-    except Exception as exc:  # pragma: no cover - external failure
-        raise HTTPException(status_code=502, detail=f"supabase upsert failed: {exc}") from exc
+        ref = collection_ref().document(doc_id(user.sub, payload.post_id))
+        ref.set(doc, merge=True)
+    except Exception as exc:
+        log.exception("firestore upsert failed for %s", payload.post_id)
+        raise HTTPException(status_code=502, detail=f"firestore upsert failed: {exc}") from exc
 
-    inserted = bool(resp.data)
-    return PostOut(ok=True, post_id=payload.post_id, inserted=inserted)
+    return PostOut(ok=True, post_id=payload.post_id, inserted=True)

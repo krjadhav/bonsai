@@ -1,24 +1,36 @@
-"""Supabase client singleton.
+"""Firestore client singleton.
 
-We use the supabase-py client so this file stays small — one table, one upsert.
-If we ever need streaming/bulk performance we can drop to direct Postgres via
-asyncpg, but for Stage 2 volumes the HTTP client is cheaper to reason about.
+Uses Application Default Credentials:
+  * Cloud Run: service account identity from the metadata server.
+  * Local: credentials from `gcloud auth application-default login`, or a
+    service-account JSON pointed at by GOOGLE_APPLICATION_CREDENTIALS.
 """
 
 from __future__ import annotations
 
 from functools import lru_cache
 
-from supabase import Client, create_client
+from google.cloud import firestore
 
-from .config import get_settings
-
-TABLE = "bonsai_posts"
+from .config import Settings, get_settings
 
 
 @lru_cache(maxsize=1)
-def get_client() -> Client:
+def get_client() -> firestore.Client:
     s = get_settings()
-    if not s.supabase_url or not s.supabase_service_key:
-        raise RuntimeError("SUPABASE_URL / SUPABASE_SERVICE_KEY not configured")
-    return create_client(s.supabase_url, s.supabase_service_key)
+    kwargs: dict[str, str] = {}
+    if s.gcp_project_id:
+        kwargs["project"] = s.gcp_project_id
+    if s.firestore_database and s.firestore_database != "(default)":
+        kwargs["database"] = s.firestore_database
+    return firestore.Client(**kwargs)
+
+
+def doc_id(user_sub: str, post_id: str) -> str:
+    """Stable document id — one row per (user, post). Enables idempotent upsert."""
+    return f"{user_sub}_{post_id}"
+
+
+def collection_ref(settings: Settings | None = None):
+    s = settings or get_settings()
+    return get_client().collection(s.firestore_collection)
