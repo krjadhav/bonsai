@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="extension/icons/bonsai-128.png" alt="Bonsai logo" width="128" height="128" />
+  <img src="assets/bonsai-app-icon.png" alt="Bonsai" width="200" />
 </p>
 
 # Bonsai: Self-Improving Feed Filter
