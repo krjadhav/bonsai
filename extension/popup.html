@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Bonsai</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="hdr">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 32 32" width="22" height="22">
+        <circle cx="16" cy="11" r="7" fill="#3f8f5a"/>
+        <circle cx="10" cy="14" r="5" fill="#4ea76d"/>
+        <circle cx="22" cy="14" r="5" fill="#2f7347"/>
+        <rect x="14.5" y="16" width="3" height="10" rx="1" fill="#5b3a1e"/>
+      </svg>
+    </div>
+    <div class="titles">
+      <div class="title">Bonsai</div>
+      <div class="ver" id="verLabel">v0.1.0</div>
+    </div>
+  </header>
+
+  <section class="auth" id="authSection">
+    <div id="signedOut">
+      <p class="lead">Sign in to start shaping your feed.</p>
+      <button id="signInBtn" class="btn primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M12 11v3.2h5.2c-.2 1.3-1.6 3.8-5.2 3.8-3.1 0-5.7-2.6-5.7-5.8S8.9 6.4 12 6.4c1.8 0 3 .8 3.7 1.4l2.5-2.4C16.7 4 14.6 3 12 3 6.9 3 2.8 7.1 2.8 12.2S6.9 21.4 12 21.4c6.9 0 9.3-4.8 9.3-7.3 0-.5 0-.9-.1-1.1H12z"/></svg>
+        Sign in with Google
+      </button>
+    </div>
+    <div id="signedIn" hidden>
+      <div class="profile">
+        <img id="avatar" alt="" />
+        <div>
+          <div class="who" id="userName"></div>
+          <div class="email" id="userEmail"></div>
+        </div>
+      </div>
+      <button id="signOutBtn" class="btn ghost">Sign out</button>
+    </div>
+  </section>
+
+  <section class="demo" aria-label="How Bonsai works">
+    <h2 class="h">How it works</h2>
+
+    <div class="stage" aria-hidden="true">
+      <div class="tweet">
+        <div class="tweet-avatar"></div>
+        <div class="tweet-lines">
+          <div class="tweet-line w60"></div>
+          <div class="tweet-line w90"></div>
+          <div class="tweet-line w40"></div>
+        </div>
+        <div class="pills">
+          <div class="pill yes">Yes</div>
+          <div class="pill no">No</div>
+        </div>
+      </div>
+
+      <div class="progress-hover">
+        <div class="progress-label">
+          <span>Learning</span>
+          <span id="pctLabel">37%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="caption">
+      Tap <b>Yes</b> or <b>No</b> on posts that appear on your timeline. The
+      hovering badge shows Bonsai's confidence as it learns. The more you teach
+      it, the better it filters — quietly reshaping your feed into something
+      calmer and more aligned with what you actually want to see.
+    </p>
+  </section>
+
+  <section class="actions">
+    <button id="openSidebarBtn" class="btn ghost">Open validation sidebar</button>
+    <a id="openXBtn" class="btn ghost" href="https://x.com" target="_blank" rel="noreferrer noopener">Open X</a>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>

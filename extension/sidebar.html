@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Bonsai — captures</title>
+  <link rel="stylesheet" href="sidebar.css" />
+</head>
+<body>
+  <header class="hdr">
+    <div class="titles">
+      <div class="title">Bonsai · validation</div>
+      <div class="ver" id="verLabel">v0.1.0</div>
+    </div>
+    <div class="actions">
+      <button id="syncBtn" class="btn ghost" title="Send to backend">Sync</button>
+      <button id="clearBtn" class="btn danger" title="Clear local captures">Clear</button>
+    </div>
+  </header>
+
+  <section class="summary">
+    <div class="stat">
+      <div class="stat__num" id="statTotal">0</div>
+      <div class="stat__label">captured</div>
+    </div>
+    <div class="stat">
+      <div class="stat__num" id="statYes">0</div>
+      <div class="stat__label">yes</div>
+    </div>
+    <div class="stat">
+      <div class="stat__num" id="statNo">0</div>
+      <div class="stat__label">no</div>
+    </div>
+    <div class="stat">
+      <div class="stat__num" id="statPending">0</div>
+      <div class="stat__label">pending</div>
+    </div>
+  </section>
+
+  <section class="filters" aria-label="Filter captures">
+    <label class="fchip"><input type="radio" name="f" value="all" checked /> All</label>
+    <label class="fchip"><input type="radio" name="f" value="yes" /> Yes</label>
+    <label class="fchip"><input type="radio" name="f" value="no" /> No</label>
+    <label class="fchip"><input type="radio" name="f" value="pending" /> Pending</label>
+  </section>
+
+  <main class="list" id="list"></main>
+
+  <template id="row-tpl">
+    <article class="row" data-post-id="">
+      <header class="row__hdr">
+        <div class="row__who">
+          <span class="row__name"></span>
+          <span class="row__handle"></span>
+        </div>
+        <time class="row__time"></time>
+      </header>
+      <p class="row__text"></p>
+      <div class="row__meta">
+        <span class="row__media"></span>
+        <span class="row__decision"></span>
+        <a class="row__link" target="_blank" rel="noreferrer noopener">open ↗</a>
+      </div>
+    </article>
+  </template>
+
+  <script src="sidebar.js"></script>
+</body>
+</html>

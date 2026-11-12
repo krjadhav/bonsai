@@ -1,0 +1,22 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.DS_Store
+dist/
+build/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ruff_cache/
+.pytest_cache/
+.pyrefly_cache/
+
+# Local agent notes — not for commit
+.bonsai-notes.md
+NOTES.local.md
+*.local.md
