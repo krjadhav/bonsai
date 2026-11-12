@@ -79,19 +79,20 @@
   gap: 12px;
   padding: 10px 16px;
   margin: 6px 0 0;
-  border-top: 1px solid rgba(78, 167, 109, 0.15);
-  background: rgba(24, 35, 25, 0.35);
+  border-top: none;
+  background: transparent;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
   box-sizing: border-box;
   width: 100%;
 }
+/* Only tint when the user has rated — default blends into X seamlessly. */
 .bonsai-header[data-state="yes"] {
-  border-top-color: rgba(78, 167, 109, 0.6);
+  border-top: 1px solid rgba(78, 167, 109, 0.6);
   background: rgba(78, 167, 109, 0.08);
 }
 .bonsai-header[data-state="no"] {
-  border-top-color: rgba(232, 116, 90, 0.55);
+  border-top: 1px solid rgba(232, 116, 90, 0.55);
   background: rgba(232, 116, 90, 0.06);
 }
 
@@ -146,25 +147,28 @@
 }
 
 /* ------- Per-tweet footer: status + Remove ------- */
+/* Hidden until the user rates — nothing to show when there's no decision. */
 .bonsai-footer {
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: space-between;
   padding: 8px 16px;
   margin: 0 0 6px;
-  border-bottom: 1px solid rgba(78, 167, 109, 0.15);
-  background: rgba(24, 35, 25, 0.35);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 12px;
   box-sizing: border-box;
   width: 100%;
 }
+.bonsai-footer[data-state="yes"],
+.bonsai-footer[data-state="no"] {
+  display: flex;
+}
 .bonsai-footer[data-state="yes"] {
-  border-bottom-color: rgba(78, 167, 109, 0.6);
+  border-bottom: 1px solid rgba(78, 167, 109, 0.6);
   background: rgba(78, 167, 109, 0.08);
 }
 .bonsai-footer[data-state="no"] {
-  border-bottom-color: rgba(232, 116, 90, 0.55);
+  border-bottom: 1px solid rgba(232, 116, 90, 0.55);
   background: rgba(232, 116, 90, 0.06);
 }
 
