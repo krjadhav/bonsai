@@ -77,9 +77,23 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 14px 6px;
+  padding: 10px 16px;
+  margin: 8px 12px 0;
+  border: 1px solid #2a3a2f;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  background: rgba(24, 35, 25, 0.35);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
+  box-sizing: border-box;
+}
+.bonsai-header[data-state="yes"] {
+  border-color: rgba(78, 167, 109, 0.5);
+  background: rgba(78, 167, 109, 0.08);
+}
+.bonsai-header[data-state="no"] {
+  border-color: rgba(232, 116, 90, 0.45);
+  background: rgba(232, 116, 90, 0.06);
 }
 
 .bonsai-header__title {
@@ -137,9 +151,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 14px 10px;
+  padding: 8px 16px;
+  margin: 0 12px 8px;
+  border: 1px solid #2a3a2f;
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  background: rgba(24, 35, 25, 0.35);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 12px;
+  box-sizing: border-box;
+}
+.bonsai-footer[data-state="yes"] {
+  border-color: rgba(78, 167, 109, 0.5);
+  background: rgba(78, 167, 109, 0.08);
+}
+.bonsai-footer[data-state="no"] {
+  border-color: rgba(232, 116, 90, 0.45);
+  background: rgba(232, 116, 90, 0.06);
 }
 
 .bonsai-footer__state {
@@ -172,14 +200,5 @@
   color: #c5d3cb;
 }
 
-/* Subtle frame tint when a decision is set — uses outline so no layout shift. */
-article[data-bonsai-state="yes"] {
-  outline: 1px solid rgba(78, 167, 109, 0.35);
-  outline-offset: -1px;
-  border-radius: 12px;
-}
-article[data-bonsai-state="no"] {
-  outline: 1px solid rgba(232, 116, 90, 0.3);
-  outline-offset: -1px;
-  border-radius: 12px;
-}
+/* No outline on the <article> itself — X controls its layout. State tint
+   lives on the header/footer siblings instead so we don't fight X's styles. */

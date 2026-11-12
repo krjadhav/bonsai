@@ -166,6 +166,7 @@
     // Header strip — "Rate to teach Bonsai" + thumbs up/down
     const header = document.createElement("div");
     header.className = "bonsai-header";
+    header.dataset.state = "pending";
     header.innerHTML = `
       <span class="bonsai-header__title">Rate to teach Bonsai</span>
       <div class="bonsai-thumbs" role="group" aria-label="Rate this post">
@@ -181,6 +182,7 @@
     // Footer — status + Remove
     const footer = document.createElement("div");
     footer.className = "bonsai-footer";
+    footer.dataset.state = "pending";
     footer.innerHTML = `
       <span class="bonsai-footer__state" data-state="pending">Awaiting your rating</span>
       <button type="button" class="bonsai-footer__remove" aria-label="Remove rating" hidden>
@@ -194,10 +196,13 @@
     const btnRemove = footer.querySelector(".bonsai-footer__remove");
 
     function paint(decision) {
-      article.dataset.bonsaiState = decision || "pending";
+      const s = decision || "pending";
+      header.dataset.state = s;
+      footer.dataset.state = s;
+      article.dataset.bonsaiState = s;
       btnYes.classList.toggle("is-active", decision === "yes");
       btnNo.classList.toggle("is-active", decision === "no");
-      state.dataset.state = decision || "pending";
+      state.dataset.state = s;
       if (decision === "yes") {
         state.innerHTML = `${ICON_CHECK}<span>More like this</span>`;
       } else if (decision === "no") {
@@ -225,8 +230,34 @@
       removeDecision(payload.postId);
     });
 
-    article.insertBefore(header, article.firstChild);
-    article.appendChild(footer);
+    // Place header + footer as SIBLINGS of the article, not children. X styles
+    // <article> as a flex row (avatar | content) — injecting into it makes our
+    // UI a flex item next to the tweet instead of above/below it. If the
+    // article's parent also happens to be a flex row, fall back to the content
+    // column inside the article (the parent of the native action [role="group"]).
+    const parent = article.parentElement;
+    const parentStyle = parent ? getComputedStyle(parent) : null;
+    const parentIsRow =
+      parentStyle &&
+      parentStyle.display.includes("flex") &&
+      parentStyle.flexDirection.startsWith("row");
+
+    if (parent && !parentIsRow) {
+      parent.insertBefore(header, article);
+      if (article.nextSibling) parent.insertBefore(footer, article.nextSibling);
+      else parent.appendChild(footer);
+    } else {
+      const col = article.querySelector('[role="group"]')?.parentElement;
+      if (col) {
+        col.insertBefore(header, col.firstChild);
+        col.appendChild(footer);
+      } else {
+        // Last resort — append inside article; visually worse but functional.
+        article.appendChild(header);
+        article.appendChild(footer);
+      }
+    }
+
     paint(null);
   }
 
