@@ -31,6 +31,8 @@ html, body {
   justify-content: space-between;
   z-index: 10;
 }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand__logo { width: 26px; height: 26px; border-radius: 6px; object-fit: cover; }
 .titles { display: flex; align-items: baseline; gap: 8px; }
 .title { font-weight: 600; }
 .ver { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }

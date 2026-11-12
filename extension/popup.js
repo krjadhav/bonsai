@@ -5,6 +5,7 @@ async function refreshAuthUI() {
   const signedIn = Boolean(bonsaiUser && bonsaiUser.email);
   $("signedOut").hidden = signedIn;
   $("signedIn").hidden = !signedIn;
+  $("postSignInActions").hidden = !signedIn;
   if (signedIn) {
     $("userName").textContent = bonsaiUser.name || "Signed in";
     $("userEmail").textContent = bonsaiUser.email;

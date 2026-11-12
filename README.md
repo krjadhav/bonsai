@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="extension/icons/bonsai-128.png" alt="Bonsai logo" width="128" height="128" />
+</p>
+
 # Bonsai: Self-Improving Feed Filter
 
 Social media platforms actively filter harmful content and optimize for attention and engagement. Still, consuming certain kinds of information on your feed can reduce life satisfaction and encourage poor decisions. What constitutes undesirable content is deeply subjective.
