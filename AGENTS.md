@@ -21,7 +21,7 @@ Read the relevant local instructions and use local commands first; routine use d
 
 [Upstream guide](https://astryx.atmeta.com/docs/getting-started) · [Local generated conventions](.agents/astryx.md)
 
-- **Neutral is the established default. Do not ask about look and feel or change the theme unless the user requests a different direction.**
+- **Matcha is the established default. Do not ask about look and feel or change the theme unless the user requests a different direction.**
 - Read `.agents/astryx.md` before UI work. Use Astryx components, layout primitives, and tokens; discover component props and import paths through the CLI. Migrate existing surfaces incrementally.
 - Keep the single root `<Theme theme={themes[defaultThemeSlug]}>` wired through `app/components/AppTheme.tsx` and generated `astryx-themes.ts`. Keep reset/base CSS loaded once and `app/layers.css` imported first. Do not hand-edit the generated theme module.
 - Customize with `defineTheme({ extends: importedTheme, ... })`; use `theme eject` only when explicitly asked for an independent source fork.
@@ -29,9 +29,9 @@ Read the relevant local instructions and use local commands first; routine use d
 Use Node >=22.13.0 (`nvm use`). Restore existing dependencies with `npm ci` if needed. For missing Astryx setup:
 
 ```sh
-npm install @astryxdesign/core @stylexjs/stylex @astryxdesign/theme-neutral @astryxdesign/cli
+npm install @astryxdesign/core @stylexjs/stylex @astryxdesign/theme-matcha @astryxdesign/cli
 npx @astryxdesign/cli init --agent-docs-path .agents/astryx.md
-npx @astryxdesign/cli theme add neutral
+npx @astryxdesign/cli theme add matcha
 ```
 
 Routine commands (use the installed CLI; read further commands in the local conventions):
@@ -73,3 +73,13 @@ node .agents/skills/security-audit/validate-findings.cjs <audit-dir>/findings.js
 - Run `npm run typecheck` for TypeScript changes and `npm run build` for application/dependency changes, plus focused tests for changed behavior. For UI changes, inspect affected states at desktop/mobile widths and in light/dark modes, and run Astryx doctor above; resolve failures and inspect warnings.
 - Before committing, run `git diff --check`. Documentation-only work needs an instructions/links review, not an application rebuild.
 - Report changes, checks, commit/push results, and remaining limitations accurately.
+
+
+# For Backend in Python
+Commands
+Lint:	```uv run ruff check .```
+Format check: ```uv run ruff format --check .```
+Auto-fix lint + format: ```uv run ruff check --fix . && uv run ruff format .```
+Type-check: ```uv run pyrefly check```
+Test (all): ```uv run pytest```
+Test (single file): ```uv run pytest --capture=no <path>```
