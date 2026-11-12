@@ -16,7 +16,10 @@ venv/
 .pytest_cache/
 .pyrefly_cache/
 
-# Local agent notes — not for commit
+# Local agent notes
 .bonsai-notes.md
 NOTES.local.md
 *.local.md
+
+# Secret
+*secret*
