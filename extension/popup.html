@@ -14,29 +14,6 @@
     </div>
   </header>
 
-  <section class="auth" id="authSection">
-    <div id="signedOut">
-      <p class="lead">
-        Teach your feed what you want to see.<br />
-        Sign in to start pruning.
-      </p>
-      <button id="signInBtn" class="btn primary">
-        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M12 11v3.2h5.2c-.2 1.3-1.6 3.8-5.2 3.8-3.1 0-5.7-2.6-5.7-5.8S8.9 6.4 12 6.4c1.8 0 3 .8 3.7 1.4l2.5-2.4C16.7 4 14.6 3 12 3 6.9 3 2.8 7.1 2.8 12.2S6.9 21.4 12 21.4c6.9 0 9.3-4.8 9.3-7.3 0-.5 0-.9-.1-1.1H12z"/></svg>
-        Sign in with Google
-      </button>
-    </div>
-    <div id="signedIn" hidden>
-      <div class="profile">
-        <img id="avatar" alt="" />
-        <div>
-          <div class="who" id="userName"></div>
-          <div class="email" id="userEmail"></div>
-        </div>
-      </div>
-      <button id="signOutBtn" class="btn ghost">Sign out</button>
-    </div>
-  </section>
-
   <section class="demo" aria-label="How Bonsai works">
     <h2 class="h">How Bonsai learns</h2>
 
@@ -95,9 +72,27 @@
     </ol>
   </section>
 
-  <section class="actions" id="postSignInActions" hidden>
-    <button id="openSidebarBtn" class="btn ghost">Open validation sidebar</button>
-    <a id="openXBtn" class="btn ghost" href="https://x.com" target="_blank" rel="noreferrer noopener">Open X</a>
+  <section class="auth" id="authSection">
+    <div id="signedOut">
+      <p class="lead">
+        Teach your feed what you want to see.<br />
+        Sign in to start pruning.
+      </p>
+      <button id="signInBtn" class="btn primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M12 11v3.2h5.2c-.2 1.3-1.6 3.8-5.2 3.8-3.1 0-5.7-2.6-5.7-5.8S8.9 6.4 12 6.4c1.8 0 3 .8 3.7 1.4l2.5-2.4C16.7 4 14.6 3 12 3 6.9 3 2.8 7.1 2.8 12.2S6.9 21.4 12 21.4c6.9 0 9.3-4.8 9.3-7.3 0-.5 0-.9-.1-1.1H12z"/></svg>
+        Sign in with Google
+      </button>
+    </div>
+    <div id="signedIn" hidden>
+      <div class="profile">
+        <img id="avatar" alt="" />
+        <div>
+          <div class="who" id="userName"></div>
+          <div class="email" id="userEmail"></div>
+        </div>
+      </div>
+      <button id="signOutBtn" class="btn ghost">Sign out</button>
+    </div>
   </section>
 
   <script src="popup.js"></script>
