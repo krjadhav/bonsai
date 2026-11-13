@@ -71,23 +71,28 @@ Read `.agents/skills/chrome-extensions/SKILL.md` before any work on `extension/`
 - Side panel (`sidebar.html`) is opened via `chrome.sidePanel.open({ windowId })` from a user gesture only; MV3 rejects async-opened panels.
 - Verification: run the preflight check below, then use the browser workflow for extension behavior changes.
 
-#### Preflight check
+#### Preflight (five gates)
 
-Before zipping, publishing, or asking the user to reload the extension, run:
+Before zipping, publishing, or asking the user to reload the extension:
 
 ```sh
 npm run check
 ```
 
-This runs `scripts/check-extension.mjs`, a dependency-free Node validator that:
+That script chains five gates in order; any one failing stops the run and fixes are required before the next gate even runs. `npm run zip` is wired to `prezip`, so release artifacts cannot be built with any gate red.
 
-- Flags any DOM id referenced by JS (`getElementById`, `querySelector("#…")`, `$("…")`) that has no matching `id="…"` in any extension HTML or dynamic creation site. This is the class of TypeError (`Cannot set properties of null`) that keeps recurring when markup and script drift.
-- Verifies every file path in `manifest.json` (icons, popup, service worker, side panel, content scripts, web-accessible resources) exists on disk.
-- Verifies `package.json` and `extension/manifest.json` versions match.
-- Verifies `<script src>` and `<link href>` in extension HTML resolve to real files.
-- Warns if `oauth2.client_id` is still a placeholder.
+1. **`npm run preflight`** — `scripts/check-extension.mjs`, a dependency-free Node validator that:
+   - Flags any DOM id referenced by JS (`getElementById`, `querySelector("#…")`, `$("…")`) with no matching `id="…"` in any extension HTML or dynamic creation site. Catches the `null.addEventListener` / `null.hidden` class of TypeError.
+   - Verifies every `manifest.json` path (icons, popup, service worker, side panel, content scripts, web-accessible resources) exists.
+   - Verifies `package.json` and `extension/manifest.json` versions match.
+   - Verifies `<script src>` and `<link href>` in extension HTML resolve to real files.
+   - Warns on placeholder `oauth2.client_id`.
+2. **`npm run lint`** — ESLint flat config in `eslint.config.mjs`. Catches undeclared references, unused vars, empty blocks (except `catch`). Runs over `extension/` and `scripts/`.
+3. **`npm run typecheck`** — `tsc --noEmit` against `tsconfig.json` with `checkJs: true` plus `noImplicitAny`, `strictFunctionTypes`, `noImplicitThis`, `noImplicitReturns`, `noFallthroughCasesInSwitch`. Each extension JS file opts in with `// @ts-check` and carries JSDoc types; ambient types live in `extension/globals.d.ts`. `strictNullChecks` is intentionally off — DOM queries are inherently nullable and the overhead of asserting non-null everywhere outweighs the catch.
+4. **`npm run audit`** — `npm audit --omit=dev --audit-level=high`. Production deps only (this project ships zero at runtime, so this is a guard against accidentally depending on something vulnerable later). Dev-only vulnerabilities in puppeteer / ESLint / tsc are intentionally ignored here.
+5. **`npm run check:load`** — `scripts/check-load.mjs` launches the bundled Chromium in headless mode with the unpacked extension loaded via `--load-extension`, waits for the MV3 service worker to register, then opens `popup.html` and `sidebar.html` as `chrome-extension://<id>/…` pages. Fails if any of those three contexts emits a `console.error` or throws a page error. This is what catches the red "Errors" button in `chrome://extensions` before the user ever reloads the extension.
 
-`npm run zip` chains it via `prezip`, so release artifacts cannot be built with any of these defects. Do not disable the check; fix the mismatch instead.
+Do not disable any gate to get a green run. Fix the root cause. If a check is wrong, fix the check.
 
 #### Browser verification
 

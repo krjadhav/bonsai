@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Preflight validator for the Chrome extension.
 //
 // Catches the common classes of breakage that only surface at runtime:
@@ -18,13 +19,23 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const EXT = join(ROOT, "extension");
 
+/** @type {string[]} */
 const errors = [];
+/** @type {string[]} */
 const warn = [];
+/** @param {string} msg */
 const fail = (msg) => errors.push(msg);
+/** @param {string} msg */
 const warnMsg = (msg) => warn.push(msg);
 
 // ---------- helpers ----------
+/**
+ * @param {string} dir
+ * @param {string[]} exts
+ * @returns {string[]}
+ */
 function walk(dir, exts) {
+  /** @type {string[]} */
   const out = [];
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
@@ -35,10 +46,15 @@ function walk(dir, exts) {
   return out;
 }
 
+/** @param {string} path */
 function read(path) {
   return readFileSync(path, "utf8");
 }
 
+/**
+ * @param {string} src
+ * @param {number} idx
+ */
 function lineOf(src, idx) {
   return src.slice(0, idx).split("\n").length;
 }
@@ -115,9 +131,13 @@ let manifest;
 try {
   manifest = JSON.parse(read(manifestPath));
 } catch (e) {
-  fail(`[extension/manifest.json] invalid JSON: ${e.message}`);
+  fail(`[extension/manifest.json] invalid JSON: ${/** @type {Error} */ (e).message}`);
 }
 
+/**
+ * @param {string | undefined} relPath
+ * @param {string} label
+ */
 function checkPath(relPath, label) {
   if (!relPath || typeof relPath !== "string") return;
   const abs = join(EXT, relPath);
@@ -188,6 +208,10 @@ for (const file of htmlFiles) {
 }
 
 // ---------- report ----------
+/**
+ * @param {number} n
+ * @param {string} s
+ */
 const label = (n, s) => `${n} ${s}${n === 1 ? "" : "s"}`;
 
 if (warn.length) {

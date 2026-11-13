@@ -1,12 +1,27 @@
 {
   "name": "bonsai-feed-filter",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "private": true,
   "description": "Bonsai — self-improving feed filter chrome extension",
   "scripts": {
-    "check": "node scripts/check-extension.mjs",
+    "preflight": "node scripts/check-extension.mjs",
+    "lint": "eslint extension scripts",
+    "lint:fix": "eslint --fix extension scripts",
+    "typecheck": "tsc --noEmit",
+    "audit": "npm audit --omit=dev --audit-level=high",
+    "check:load": "node scripts/check-load.mjs",
+    "check": "npm run preflight && npm run lint && npm run typecheck && npm run audit && npm run check:load",
     "prezip": "npm run check",
     "zip": "cd extension && zip -r ../dist/bonsai-extension.zip . -x '*.DS_Store'",
     "version:sync": "node -e \"const p=require('./package.json');const fs=require('fs');const m=JSON.parse(fs.readFileSync('extension/manifest.json','utf8'));m.version=p.version;fs.writeFileSync('extension/manifest.json',JSON.stringify(m,null,2)+'\\n');console.log('synced',p.version);\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/chrome": "^0.3.7",
+    "@types/node": "^26.6.6",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "puppeteer": "^25.17.0",
+    "typescript": "^7.0.2"
   }
 }

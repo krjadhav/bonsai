@@ -1,3 +1,4 @@
+// @ts-check
 // Bonsai content script — runs on x.com / twitter.com
 //
 // Storage policy: only posts the user explicitly rates (Yes/No) land in
@@ -16,28 +17,38 @@
   const COACH_KEY = "bonsaiCoachSeen";
   const MAX_LOCAL = 500;
 
+  /** @type {Set<string>} */
   const seenThisSession = new Set();
+  /** @type {HTMLElement | null} */
   let coachEl = null;
 
   // --------------------------------------------------------------------------
   // Extract tweet payload from an <article> node
   // --------------------------------------------------------------------------
+  /**
+   * @param {HTMLElement} article
+   * @returns {BonsaiCapture}
+   */
   function extractTweet(article) {
     const permalink = article.querySelector('a[href*="/status/"]');
     const href = permalink?.getAttribute("href") || "";
     const match = href.match(/\/status\/(\d+)/);
     const postId = match ? match[1] : null;
 
-    const textEl = article.querySelector('[data-testid="tweetText"]');
+    const textEl = /** @type {HTMLElement | null} */ (
+      article.querySelector('[data-testid="tweetText"]')
+    );
     const content = textEl ? textEl.innerText.trim() : "";
 
     const userEl = article.querySelector('[data-testid="User-Name"]');
+    /** @type {string | null} */
     let authorName = null;
+    /** @type {string | null} */
     let authorHandle = null;
     if (userEl) {
       const spans = userEl.querySelectorAll("span");
       for (const s of spans) {
-        const t = s.innerText.trim();
+        const t = /** @type {HTMLElement} */ (s).innerText.trim();
         if (!authorName && t && !t.startsWith("@") && !t.includes("·")) authorName = t;
         if (!authorHandle && t.startsWith("@")) authorHandle = t;
       }
@@ -50,6 +61,7 @@
     const hasVideo = Boolean(
       article.querySelector('[data-testid="videoPlayer"], video, [data-testid="previewInterstitial"]'),
     );
+    /** @type {string[]} */
     const mediaTypes = [];
     if (hasImage) mediaTypes.push("image");
     if (hasVideo) mediaTypes.push("video");
@@ -71,9 +83,15 @@
   // --------------------------------------------------------------------------
   // Storage mutations — only decided posts live here
   // --------------------------------------------------------------------------
+  /**
+   * @param {BonsaiCapture} payload
+   * @param {"yes" | "no"} decision
+   */
   async function persistDecision(payload, decision) {
-    const { [STORAGE_KEY]: captures = [] } = await chrome.storage.local.get(STORAGE_KEY);
+    const store = await chrome.storage.local.get(STORAGE_KEY);
+    const captures = /** @type {BonsaiCapture[]} */ (store[STORAGE_KEY] || []);
     const idx = captures.findIndex((c) => c.postId === payload.postId);
+    /** @type {BonsaiCapture} */
     const entry = {
       ...payload,
       decision,
@@ -86,8 +104,10 @@
     chrome.runtime.sendMessage({ type: "bonsai:decision", payload: entry }).catch(() => {});
   }
 
+  /** @param {string | null} postId */
   async function removeDecision(postId) {
-    const { [STORAGE_KEY]: captures = [] } = await chrome.storage.local.get(STORAGE_KEY);
+    const store = await chrome.storage.local.get(STORAGE_KEY);
+    const captures = /** @type {BonsaiCapture[]} */ (store[STORAGE_KEY] || []);
     const idx = captures.findIndex((c) => c.postId === postId);
     if (idx === -1) return;
     captures.splice(idx, 1);
@@ -111,6 +131,7 @@
   // --------------------------------------------------------------------------
   // Inject rate controls onto each tweet
   // --------------------------------------------------------------------------
+  /** @param {HTMLElement} article */
   function attachControls(article) {
     if (article.dataset[PROCESSED]) return;
     article.dataset[PROCESSED] = "1";
@@ -123,7 +144,6 @@
 
     seenThisSession.add(payload.postId);
 
-    // Header strip — "Rate to teach Bonsai" + thumbs up/down
     const header = document.createElement("div");
     header.className = "bonsai-header";
     header.dataset.state = "pending";
@@ -139,7 +159,6 @@
       </div>
     `;
 
-    // Footer — status + Remove
     const footer = document.createElement("div");
     footer.className = "bonsai-footer";
     footer.dataset.state = "pending";
@@ -150,11 +169,14 @@
       </button>
     `;
 
-    const btnYes = header.querySelector(".bonsai-thumb--yes");
-    const btnNo = header.querySelector(".bonsai-thumb--no");
-    const state = footer.querySelector(".bonsai-footer__state");
-    const btnRemove = footer.querySelector(".bonsai-footer__remove");
+    const btnYes = /** @type {HTMLButtonElement} */ (header.querySelector(".bonsai-thumb--yes"));
+    const btnNo = /** @type {HTMLButtonElement} */ (header.querySelector(".bonsai-thumb--no"));
+    const state = /** @type {HTMLElement} */ (footer.querySelector(".bonsai-footer__state"));
+    const btnRemove = /** @type {HTMLButtonElement} */ (
+      footer.querySelector(".bonsai-footer__remove")
+    );
 
+    /** @param {"yes" | "no" | null} decision */
     function paint(decision) {
       const s = decision || "pending";
       header.dataset.state = s;
@@ -173,6 +195,10 @@
       btnRemove.hidden = !decision;
     }
 
+    /**
+     * @param {Event} ev
+     * @param {"yes" | "no"} decision
+     */
     function handleChoose(ev, decision) {
       ev.preventDefault();
       ev.stopPropagation();
@@ -218,7 +244,6 @@
         col.insertBefore(header, col.firstChild);
         col.appendChild(footer);
       } else {
-        // Last resort — append inside article; visually worse but functional.
         article.appendChild(header);
         article.appendChild(footer);
       }
@@ -254,7 +279,10 @@
         <b class="bonsai-coach__bad">Less like this</b> on one you don't. Bonsai learns from both.
       </div>
     `;
-    el.querySelector(".bonsai-coach__close").addEventListener("click", dismissCoach);
+    const closeBtn = /** @type {HTMLButtonElement | null} */ (
+      el.querySelector(".bonsai-coach__close")
+    );
+    closeBtn?.addEventListener("click", dismissCoach);
     document.body.appendChild(el);
     coachEl = el;
   }
@@ -272,22 +300,29 @@
   // --------------------------------------------------------------------------
   // Observer wiring — X virtualizes the timeline aggressively
   // --------------------------------------------------------------------------
-  function scan(root = document) {
-    root.querySelectorAll('article[role="article"]').forEach(attachControls);
+  /** @param {Document | HTMLElement} root */
+  function scan(root) {
+    root.querySelectorAll('article[role="article"]').forEach((a) =>
+      attachControls(/** @type {HTMLElement} */ (a)),
+    );
   }
 
   const observer = new MutationObserver((muts) => {
     for (const m of muts) {
       m.addedNodes.forEach((n) => {
         if (n.nodeType !== 1) return;
-        if (n.matches && n.matches('article[role="article"]')) attachControls(n);
-        else scan(n);
+        const el = /** @type {HTMLElement} */ (n);
+        if (typeof el.matches === "function" && el.matches('article[role="article"]')) {
+          attachControls(el);
+        } else {
+          scan(el);
+        }
       });
     }
   });
 
   function boot() {
-    scan();
+    scan(document);
     observer.observe(document.body, { childList: true, subtree: true });
     maybeShowCoach();
   }

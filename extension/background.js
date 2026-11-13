@@ -1,21 +1,26 @@
+// @ts-check
 // Bonsai background service worker (MV3, module).
-// - Handles Google OAuth via chrome.identity.getAuthToken
-// - Routes messages between content script / popup / sidebar
-// - Sends captures to the backend (/posts) for persistence when signed in
+// - Handles Google OAuth via chrome.identity.getAuthToken + launchWebAuthFlow.
+// - Routes messages between content script / popup / sidebar.
+// - Sends captures to the backend (/posts) for persistence when signed in.
+
+export {}; // tell TS this file is a module, so top-level decls don't clash
 
 const STORAGE_KEY = "bonsaiCaptures";
 const USER_KEY = "bonsaiUser";
 const CONFIG_KEY = "bonsaiConfig";
 
+/** @type {BonsaiConfig} */
 const DEFAULT_CONFIG = {
   // Leave empty until the user points at a deployed backend. When empty,
   // captures stay in chrome.storage.local and are *not* POSTed anywhere.
   apiBaseUrl: "",
 };
 
+/** @returns {Promise<BonsaiConfig>} */
 async function getConfig() {
   const { [CONFIG_KEY]: cfg } = await chrome.storage.local.get(CONFIG_KEY);
-  return { ...DEFAULT_CONFIG, ...(cfg || {}) };
+  return { ...DEFAULT_CONFIG, .../** @type {Partial<BonsaiConfig>} */ (cfg || {}) };
 }
 
 // ---------------------------------------------------------------------------
@@ -57,6 +62,8 @@ chrome.runtime.onInstalled.addListener(async () => {
 //
 // Full setup for both paths: OAUTH-SETUP.md at the repo root.
 // ---------------------------------------------------------------------------
+
+/** @returns {Promise<string>} */
 function getAuthTokenInteractive() {
   return new Promise((resolve, reject) => {
     chrome.identity.getAuthToken({ interactive: true }, (token) => {
@@ -64,11 +71,15 @@ function getAuthTokenInteractive() {
         reject(new Error(chrome.runtime.lastError?.message || "getAuthToken returned no token"));
         return;
       }
-      resolve(token);
+      resolve(/** @type {string} */ (token));
     });
   });
 }
 
+/**
+ * @param {string} url
+ * @returns {Promise<string>}
+ */
 function launchWebAuthFlow(url) {
   return new Promise((resolve, reject) => {
     chrome.identity.launchWebAuthFlow({ url, interactive: true }, (redirectUrl) => {
@@ -81,6 +92,10 @@ function launchWebAuthFlow(url) {
   });
 }
 
+/**
+ * @param {string} redirectUrl
+ * @returns {string}
+ */
 function parseTokenFromRedirect(redirectUrl) {
   const hash = redirectUrl.split("#")[1] || "";
   const params = new URLSearchParams(hash);
@@ -92,6 +107,10 @@ function parseTokenFromRedirect(redirectUrl) {
   return token;
 }
 
+/**
+ * @param {string} token
+ * @returns {Promise<{ email: string, name?: string, picture?: string, sub: string }>}
+ */
 async function fetchUserInfo(token) {
   const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
     headers: { Authorization: "Bearer " + token },
@@ -121,26 +140,24 @@ async function signInViaWebFlow() {
   return parseTokenFromRedirect(redirect);
 }
 
+/** @returns {Promise<BonsaiUser>} */
 async function signIn() {
+  /** @type {string | undefined} */
   let token;
-  let getAuthTokenError;
   try {
     token = await getAuthTokenInteractive();
   } catch (e) {
-    getAuthTokenError = e;
-    console.info("getAuthToken failed, falling back to launchWebAuthFlow:", e?.message || e);
+    const msg1 = /** @type {Error} */ (e)?.message || String(e);
+    console.info("getAuthToken failed, falling back to launchWebAuthFlow:", msg1);
     try {
       token = await signInViaWebFlow();
     } catch (e2) {
-      // Surface both error messages so the popup hint can identify which
-      // OAuth client path the user has configured.
-      throw new Error(
-        `getAuthToken: ${getAuthTokenError?.message || getAuthTokenError}; ` +
-          `launchWebAuthFlow: ${e2?.message || e2}`,
-      );
+      const msg2 = /** @type {Error} */ (e2)?.message || String(e2);
+      throw new Error(`getAuthToken: ${msg1}; launchWebAuthFlow: ${msg2}`, { cause: e2 });
     }
   }
   const info = await fetchUserInfo(token);
+  /** @type {BonsaiUser} */
   const user = {
     email: info.email,
     name: info.name,
@@ -153,7 +170,8 @@ async function signIn() {
 }
 
 async function signOut() {
-  const { [USER_KEY]: user } = await chrome.storage.local.get(USER_KEY);
+  const { [USER_KEY]: userRaw } = await chrome.storage.local.get(USER_KEY);
+  const user = /** @type {BonsaiUser | undefined} */ (userRaw);
   if (user?.token) {
     try {
       await fetch(`https://oauth2.googleapis.com/revoke?token=${user.token}`, {
@@ -163,9 +181,6 @@ async function signOut() {
     } catch (e) {
       console.warn("revoke failed", e);
     }
-    // getAuthToken caches tokens in the chrome.identity cache; clear it so a
-    // subsequent sign-in forces a fresh interactive flow. No-op if the token
-    // came from launchWebAuthFlow (not in the cache).
     try {
       await new Promise((resolve) =>
         chrome.identity.removeCachedAuthToken({ token: user.token }, () => resolve(undefined)),
@@ -182,6 +197,12 @@ async function signOut() {
 // Backend post sync — single POST, no batching for simplicity.
 // Pricing: insertion-only, server dedupes via unique(user_email, post_id).
 // ---------------------------------------------------------------------------
+
+/**
+ * @param {BonsaiConfig} cfg
+ * @param {BonsaiUser | undefined} user
+ * @param {BonsaiCapture} capture
+ */
 async function sendPost(cfg, user, capture) {
   if (!cfg.apiBaseUrl || !user?.token) return { skipped: true };
   const res = await fetch(`${cfg.apiBaseUrl.replace(/\/$/, "")}/posts`, {
@@ -199,11 +220,13 @@ async function sendPost(cfg, user, capture) {
   return res.json().catch(() => ({ ok: true }));
 }
 
+/** @param {BonsaiCapture} capture */
 async function trySendCapture(capture) {
-  const [cfg, { [USER_KEY]: user }] = await Promise.all([
+  const [cfg, { [USER_KEY]: userRaw }] = await Promise.all([
     getConfig(),
     chrome.storage.local.get(USER_KEY),
   ]);
+  const user = /** @type {BonsaiUser | undefined} */ (userRaw);
   if (!cfg.apiBaseUrl || !user?.token) return { skipped: true };
   try {
     return await sendPost(cfg, user, capture);
@@ -214,11 +237,13 @@ async function trySendCapture(capture) {
 }
 
 async function syncAll() {
-  const [{ [STORAGE_KEY]: captures = [] }, { [USER_KEY]: user }, cfg] = await Promise.all([
+  const [capStore, userStore, cfg] = await Promise.all([
     chrome.storage.local.get(STORAGE_KEY),
     chrome.storage.local.get(USER_KEY),
     getConfig(),
   ]);
+  const captures = /** @type {BonsaiCapture[]} */ (capStore[STORAGE_KEY] || []);
+  const user = /** @type {BonsaiUser | undefined} */ (userStore[USER_KEY]);
   if (!cfg.apiBaseUrl) return { ok: false, error: "No apiBaseUrl configured" };
   if (!user?.token) return { ok: false, error: "Not signed in" };
   let sent = 0;
@@ -263,7 +288,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           sendResponse({ error: "unknown message type" });
       }
     } catch (e) {
-      sendResponse({ error: String(e?.message || e) });
+      const msg = /** @type {Error} */ (e)?.message || String(e);
+      sendResponse({ error: msg });
     }
   })();
   return true; // keep channel open for async sendResponse
