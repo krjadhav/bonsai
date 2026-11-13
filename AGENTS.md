@@ -177,3 +177,5 @@ gcloud run services logs read bonsai-api --region=us-central1 \
 ```
 
 Full one-time setup (APIs enable, Firestore create, Artifact Registry, IAM) lives in `backend/README.md`. Prefer that doc over free-form commands; update it when infra conventions change.
+
+For routine extension-id ↔ backend wiring, use `scripts/gcloud-setup.sh`. It is verify-only: it refuses to create APIs, SAs, Firestore databases, Artifact Registry repos, or Cloud Run services, and only mutates the existing service's `ALLOWED_ORIGINS` (and optionally `GOOGLE_OAUTH_CLIENT_ID`). Call as `./scripts/gcloud-setup.sh <extension-id> [oauth-client-id]`. Do not add create/deploy steps to this script — redeploys belong in `backend/README.md`.
