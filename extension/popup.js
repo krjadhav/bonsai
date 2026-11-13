@@ -66,7 +66,10 @@ async function signIn() {
   try {
     const user = await chrome.runtime.sendMessage({ type: "bonsai:signIn" });
     if (user && user.error) {
-      alert("Sign-in failed: " + user.error);
+      const hint = /redirect_uri|invalid_client|Authorization page/i.test(user.error)
+        ? "\n\nThe OAuth client in manifest.json must be a 'Web application' type with this extension's redirect URI authorized. See AGENTS.md → Chrome Extensions → OAuth setup."
+        : "";
+      alert("Sign-in failed: " + user.error + hint);
     }
   } finally {
     $("signInBtn").disabled = false;

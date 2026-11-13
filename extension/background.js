@@ -30,24 +30,43 @@ chrome.runtime.onInstalled.addListener(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Google OAuth
+// Google OAuth — launchWebAuthFlow path.
+//
+// Why not chrome.identity.getAuthToken? That API is bound to Chrome's native
+// Google account integration; it fails with "The user turned off browser
+// signin" when Chrome sign-in is disabled, and also breaks on Chromium-based
+// browsers that ship without Google API keys (Brave, Arc, plain Chromium).
+// launchWebAuthFlow is the standards-based OAuth 2.0 implicit flow routed
+// through chrome.identity.getRedirectURL() — it works in every Chromium flavor
+// regardless of the user's sync settings.
+//
+// Requirement: the OAuth client in manifest.json MUST be a Google Cloud
+// Console client of type "Web application" (not "Chrome Extension") with
+// `https://<extension-id>.chromiumapp.org/` added as an Authorized redirect
+// URI. Pin the extension ID by adding a `key` to manifest.json during
+// development so the redirect URI doesn't change on every unpacked reload.
 // ---------------------------------------------------------------------------
-function getAuthToken(interactive) {
+function launchWebAuthFlow(url) {
   return new Promise((resolve, reject) => {
-    chrome.identity.getAuthToken({ interactive }, (token) => {
-      if (chrome.runtime.lastError || !token) {
-        reject(new Error(chrome.runtime.lastError?.message || "No token"));
+    chrome.identity.launchWebAuthFlow({ url, interactive: true }, (redirectUrl) => {
+      if (chrome.runtime.lastError || !redirectUrl) {
+        reject(new Error(chrome.runtime.lastError?.message || "launchWebAuthFlow returned no URL"));
         return;
       }
-      resolve(token);
+      resolve(redirectUrl);
     });
   });
 }
 
-function removeCachedToken(token) {
-  return new Promise((resolve) => {
-    chrome.identity.removeCachedAuthToken({ token }, () => resolve());
-  });
+function parseTokenFromRedirect(redirectUrl) {
+  const hash = redirectUrl.split("#")[1] || "";
+  const params = new URLSearchParams(hash);
+  const token = params.get("access_token");
+  if (!token) {
+    const err = params.get("error") || "missing access_token in redirect";
+    throw new Error(err);
+  }
+  return token;
 }
 
 async function fetchUserInfo(token) {
@@ -59,7 +78,24 @@ async function fetchUserInfo(token) {
 }
 
 async function signIn() {
-  const token = await getAuthToken(true);
+  const manifest = chrome.runtime.getManifest();
+  const clientId = manifest.oauth2?.client_id;
+  if (!clientId || clientId.startsWith("REPLACE_")) {
+    throw new Error("oauth2.client_id missing or placeholder in manifest.json");
+  }
+  const scopes = (manifest.oauth2?.scopes || ["openid", "email", "profile"]).join(" ");
+  const redirectUri = chrome.identity.getRedirectURL();
+
+  const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  authUrl.searchParams.set("client_id", clientId);
+  authUrl.searchParams.set("response_type", "token");
+  authUrl.searchParams.set("redirect_uri", redirectUri);
+  authUrl.searchParams.set("scope", scopes);
+  authUrl.searchParams.set("include_granted_scopes", "true");
+  authUrl.searchParams.set("prompt", "consent");
+
+  const redirect = await launchWebAuthFlow(authUrl.toString());
+  const token = parseTokenFromRedirect(redirect);
   const info = await fetchUserInfo(token);
   const user = {
     email: info.email,
@@ -76,11 +112,15 @@ async function signOut() {
   const { [USER_KEY]: user } = await chrome.storage.local.get(USER_KEY);
   if (user?.token) {
     try {
-      await fetch(`https://accounts.google.com/o/oauth2/revoke?token=${user.token}`);
+      // Standard OAuth 2.0 revoke endpoint. launchWebAuthFlow doesn't use
+      // chrome.identity's token cache, so no removeCachedAuthToken needed.
+      await fetch(`https://oauth2.googleapis.com/revoke?token=${user.token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
     } catch (e) {
       console.warn("revoke failed", e);
     }
-    await removeCachedToken(user.token);
   }
   await chrome.storage.local.remove(USER_KEY);
   return { ok: true };
