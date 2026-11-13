@@ -45,14 +45,6 @@ section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
 section:last-of-type { border-bottom: none; }
 
 .lead { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
-.h {
-  margin: 0 0 10px;
-  font-size: 11px;
-  color: var(--muted);
-  font-weight: 600;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-}
 
 .btn {
   display: inline-flex;
@@ -77,12 +69,13 @@ section:last-of-type { border-bottom: none; }
 .btn.primary:hover { background: var(--accent); }
 .btn.ghost { background: transparent; border-color: var(--border); }
 .btn.ghost:hover { background: var(--surface); }
+.btn[disabled] { opacity: 0.6; cursor: default; }
 
 .profile {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .profile img {
   width: 36px; height: 36px; border-radius: 50%;
@@ -92,7 +85,9 @@ section:last-of-type { border-bottom: none; }
 .who { font-weight: 600; }
 .email { color: var(--muted); font-size: 12px; }
 
-/* ---------- Demo stage with three choreographed scenes ---------- */
+.home .btn + .btn { margin-top: 8px; }
+
+/* ---------- Slideshow stage ---------- */
 .stage {
   position: relative;
   height: 190px;
@@ -100,28 +95,32 @@ section:last-of-type { border-bottom: none; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
+  margin-bottom: 14px;
 }
 
-/* Scenes fade in/out in a looped sequence. Each scene is 4s of the 12s loop. */
 .scene {
   position: absolute;
   inset: 14px;
   opacity: 0;
-  animation: scene-cycle 12s ease-in-out infinite;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: translateY(6px);
 }
-.scene--rate  { animation-delay: 0s; }
-.scene--prune { animation-delay: 4s; }
-.scene--grow  { animation-delay: 8s; }
-
-@keyframes scene-cycle {
-  0%, 2%   { opacity: 0; transform: translateY(6px); }
-  8%, 30%  { opacity: 1; transform: translateY(0); }
-  33%, 100% { opacity: 0; transform: translateY(-6px); }
+.stage[data-step="1"] .scene--rate,
+.stage[data-step="2"] .scene--prune,
+.stage[data-step="3"] .scene--grow {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Scene 1 — rate a tweet */
-.scene--rate { display: flex; flex-direction: column; justify-content: center; gap: 12px; align-items: center; }
-
+.scene--rate {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  align-items: center;
+}
 .mini-tweet {
   width: 220px;
   display: grid;
@@ -141,7 +140,6 @@ section:last-of-type { border-bottom: none; }
 .mini-line { height: 6px; background: #2a3a2f; border-radius: 4px; }
 .mini-line.w60 { width: 62%; }
 .mini-line.w90 { width: 86%; }
-
 .choice {
   position: absolute;
   width: 26px; height: 26px;
@@ -150,28 +148,28 @@ section:last-of-type { border-bottom: none; }
   place-items: center;
   color: #fff;
   opacity: 0;
-}
-.choice--yes {
-  right: 16px;
   top: 50%;
-  background: #27a04f;
-  animation: choice-pop 12s ease-in-out infinite;
-  animation-delay: 1.4s;
 }
-.choice--no {
-  left: 16px;
-  top: 50%;
-  background: #c76c57;
-  animation: choice-pop 12s ease-in-out infinite;
-  animation-delay: 2.5s;
+.choice--yes { right: 16px; background: #27a04f; }
+.choice--no  { left: 16px; background: #c76c57; }
+.stage[data-step="1"] .choice--yes {
+  animation: choice-pop-yes 3.2s ease-in-out infinite;
 }
-@keyframes choice-pop {
-  0%, 10%  { opacity: 0; transform: translateY(-50%) scale(0.5); }
-  13%, 25% { opacity: 1; transform: translateY(-50%) scale(1); }
-  32%, 100% { opacity: 0; transform: translateY(-50%) scale(0.6); }
+.stage[data-step="1"] .choice--no {
+  animation: choice-pop-no 3.2s ease-in-out infinite;
+}
+@keyframes choice-pop-yes {
+  0%, 20%  { opacity: 0; transform: translateY(-50%) scale(0.5); }
+  30%, 55% { opacity: 1; transform: translateY(-50%) scale(1); }
+  70%, 100% { opacity: 0; transform: translateY(-50%) scale(0.6); }
+}
+@keyframes choice-pop-no {
+  0%, 50%  { opacity: 0; transform: translateY(-50%) scale(0.5); }
+  60%, 85% { opacity: 1; transform: translateY(-50%) scale(1); }
+  95%, 100% { opacity: 0; transform: translateY(-50%) scale(0.6); }
 }
 
-/* Scene 2 — the feed reshapes */
+/* Scene 2 — feed reshapes */
 .scene--prune {
   display: flex;
   flex-direction: column;
@@ -194,29 +192,23 @@ section:last-of-type { border-bottom: none; }
 .row-line.w60 { width: 60%; }
 .row-line.w70 { width: 70%; }
 .row-line.w80 { width: 80%; }
-.dot {
-  width: 10px; height: 10px; border-radius: 50%; flex: none;
-}
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .dot--yes { background: #4ea76d; box-shadow: 0 0 6px rgba(78, 167, 109, 0.5); }
 .dot--no  { background: #c76c57; }
 
-.row--keep {
-  animation: keep-glow 12s ease-in-out infinite;
-  animation-delay: 5s;
+.stage[data-step="2"] .row--keep {
+  animation: keep-glow 3.2s ease-in-out infinite;
 }
-.row--drop {
-  animation: drop-fade 12s ease-in-out infinite;
-  animation-delay: 5s;
+.stage[data-step="2"] .row--drop {
+  animation: drop-fade 3.2s ease-in-out infinite;
 }
 @keyframes keep-glow {
-  0%, 30%  { opacity: 0.4; border-color: var(--border); }
-  40%, 60% { opacity: 1; border-color: rgba(78, 167, 109, 0.5); background: rgba(78, 167, 109, 0.06); }
-  70%, 100% { opacity: 1; border-color: rgba(78, 167, 109, 0.5); background: rgba(78, 167, 109, 0.06); }
+  0%, 15%  { opacity: 0.4; border-color: var(--border); }
+  45%, 100% { opacity: 1; border-color: rgba(78, 167, 109, 0.5); background: rgba(78, 167, 109, 0.06); }
 }
 @keyframes drop-fade {
-  0%, 30%  { opacity: 0.4; filter: none; transform: scale(1); }
-  45%, 60% { opacity: 0.15; filter: grayscale(0.6); transform: scale(0.95); }
-  70%, 100% { opacity: 0.1; filter: grayscale(0.8); transform: scale(0.93); }
+  0%, 15%  { opacity: 0.4; filter: none; transform: scale(1); }
+  45%, 100% { opacity: 0.15; filter: grayscale(0.7); transform: scale(0.95); }
 }
 
 /* Scene 3 — tree grows + confidence rises */
@@ -256,74 +248,52 @@ section:last-of-type { border-bottom: none; }
   width: 10%;
   background: linear-gradient(90deg, var(--accent-strong), var(--accent));
   border-radius: 999px;
-  animation: confidence-grow 4s ease-out infinite;
-  animation-delay: 8s;
+}
+.stage[data-step="3"] .confidence-fill {
+  animation: confidence-grow 3.2s ease-out infinite;
 }
 @keyframes confidence-grow {
   0%   { width: 15%; }
-  50%  { width: 60%; }
+  60%  { width: 87%; }
   100% { width: 87%; }
 }
 
-/* Step indicator — three dots glow in sync with scenes */
-.step-dots {
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
+/* Slideshow copy */
+.tour__title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tour__body {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.tour__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.step-dots--manual {
   display: flex;
   gap: 6px;
+  justify-content: center;
 }
-.step-dot {
-  width: 5px; height: 5px;
+.step-dots--manual .step-dot {
+  width: 6px; height: 6px;
   border-radius: 50%;
   background: #2a3a2f;
-  animation: dot-glow 12s ease-in-out infinite;
+  transition: background 0.15s, box-shadow 0.15s;
 }
-.step-dot--1 { animation-delay: 0s; }
-.step-dot--2 { animation-delay: 4s; }
-.step-dot--3 { animation-delay: 8s; }
-@keyframes dot-glow {
-  0%, 30%  { background: #2a3a2f; }
-  10%      { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
-  20%      { background: #2a3a2f; box-shadow: none; }
+.step-dots--manual .step-dot.is-active {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
 }
 
-/* Numbered steps */
-.steps {
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: step;
-  color: var(--muted);
-  font-size: 12px;
-}
-.steps li {
-  position: relative;
-  padding: 4px 0 4px 26px;
-  counter-increment: step;
-}
-.steps li::before {
-  content: counter(step);
-  position: absolute;
-  left: 0;
-  top: 4px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--surface-2);
-  color: var(--text);
-  font-weight: 600;
-  font-size: 10px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--border);
-}
-.steps li b { color: var(--text); font-weight: 600; }
-
-/* Actions row (only after sign-in) */
-.actions {
+.tour__actions {
   display: flex;
   gap: 8px;
 }
-.actions .btn { flex: 1; }
+.tour__actions .btn { flex: 1; }

@@ -1,15 +1,63 @@
 const $ = (id) => document.getElementById(id);
 
-async function refreshAuthUI() {
-  const { bonsaiUser } = await chrome.storage.local.get("bonsaiUser");
+const ONBOARDED_KEY = "bonsaiOnboarded";
+const COACH_KEY = "bonsaiCoachSeen";
+
+const TOUR_STEPS = [
+  {
+    title: "Rate what you see",
+    body: "On every post on X, tap the thumb icons to mark it as more like this or less like this.",
+  },
+  {
+    title: "Bonsai learns",
+    body: "Your rated posts shape a preference model — more of what you want, less of what you don't.",
+  },
+  {
+    title: "Your feed reshapes",
+    body: "Over time the feed leans toward the posts you keep and quiets the ones you drop.",
+  },
+];
+
+let tourIndex = 0;
+
+function showSection(name) {
+  const views = ["signedOut", "tour", "home"];
+  for (const v of views) $(v).hidden = v !== name;
+}
+
+function renderTour() {
+  const step = TOUR_STEPS[tourIndex];
+  $("tourStage").dataset.step = String(tourIndex + 1);
+  $("tourTitle").textContent = step.title;
+  $("tourBody").textContent = step.body;
+
+  const dots = $("tourDots").querySelectorAll(".step-dot");
+  dots.forEach((d, i) => d.classList.toggle("is-active", i === tourIndex));
+
+  $("tourBackBtn").hidden = tourIndex === 0;
+  $("tourNextBtn").textContent = tourIndex === TOUR_STEPS.length - 1 ? "Open X" : "Next";
+}
+
+async function refreshUI() {
+  const { bonsaiUser, [ONBOARDED_KEY]: onboarded } =
+    await chrome.storage.local.get(["bonsaiUser", ONBOARDED_KEY]);
   const signedIn = Boolean(bonsaiUser && bonsaiUser.email);
-  $("signedOut").hidden = signedIn;
-  $("signedIn").hidden = !signedIn;
-  $("postSignInActions").hidden = !signedIn;
-  if (signedIn) {
-    $("userName").textContent = bonsaiUser.name || "Signed in";
-    $("userEmail").textContent = bonsaiUser.email;
-    if (bonsaiUser.picture) $("avatar").src = bonsaiUser.picture;
+
+  if (!signedIn) {
+    showSection("signedOut");
+    return;
+  }
+
+  $("userName").textContent = bonsaiUser.name || "Signed in";
+  $("userEmail").textContent = bonsaiUser.email;
+  if (bonsaiUser.picture) $("avatar").src = bonsaiUser.picture;
+
+  if (!onboarded) {
+    tourIndex = 0;
+    renderTour();
+    showSection("tour");
+  } else {
+    showSection("home");
   }
 }
 
@@ -17,33 +65,41 @@ async function signIn() {
   $("signInBtn").disabled = true;
   try {
     const user = await chrome.runtime.sendMessage({ type: "bonsai:signIn" });
-    if (user && user.email) {
-      await chrome.storage.local.set({ bonsaiUser: user });
-    } else if (user && user.error) {
+    if (user && user.error) {
       alert("Sign-in failed: " + user.error);
     }
   } finally {
     $("signInBtn").disabled = false;
-    refreshAuthUI();
+    refreshUI();
   }
 }
 
 async function signOut() {
   await chrome.runtime.sendMessage({ type: "bonsai:signOut" });
-  await chrome.storage.local.remove("bonsaiUser");
-  refreshAuthUI();
+  await chrome.storage.local.remove(["bonsaiUser", ONBOARDED_KEY, COACH_KEY]);
+  refreshUI();
 }
 
-async function openSidebar() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab && chrome.sidePanel && chrome.sidePanel.open) {
-    try {
-      await chrome.sidePanel.open({ windowId: tab.windowId });
-    } catch (e) {
-      console.warn("sidePanel.open failed", e);
-    }
-  }
+async function openX() {
+  await chrome.storage.local.set({ [ONBOARDED_KEY]: true });
+  await chrome.tabs.create({ url: "https://x.com/home" });
   window.close();
+}
+
+function tourNext() {
+  if (tourIndex < TOUR_STEPS.length - 1) {
+    tourIndex += 1;
+    renderTour();
+  } else {
+    openX();
+  }
+}
+
+function tourBack() {
+  if (tourIndex > 0) {
+    tourIndex -= 1;
+    renderTour();
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -52,7 +108,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   $("signInBtn").addEventListener("click", signIn);
   $("signOutBtn").addEventListener("click", signOut);
-  $("openSidebarBtn").addEventListener("click", openSidebar);
+  $("openXBtn").addEventListener("click", openX);
+  $("tourNextBtn").addEventListener("click", tourNext);
+  $("tourBackBtn").addEventListener("click", tourBack);
 
-  refreshAuthUI();
+  refreshUI();
 });

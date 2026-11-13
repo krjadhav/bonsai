@@ -1,6 +1,12 @@
 {
   "version": 2,
   "skills": {
+    "chrome-extensions": {
+      "source": "GoogleChrome/modern-web-guidance",
+      "sourceType": "github",
+      "skillPath": "skills/chrome-extensions/SKILL.md",
+      "computedHash": "802ef1e0135ebd69e0eec533914754ba8ed0f080af86e55400de6e7fb22e6bae"
+    },
     "git-commit": {
       "source": "github/awesome-copilot",
       "sourceType": "github",

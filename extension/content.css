@@ -132,3 +132,58 @@
 
 /* No outline on the <article> itself — X controls its layout. State tint
    lives on the header/footer siblings instead so we don't fight X's styles. */
+
+/* ------- First-visit coach overlay ------- */
+.bonsai-coach {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  padding: 14px 16px 16px;
+  background: #182319;
+  color: #e9f3eb;
+  border: 1px solid #2a3a2f;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 2147483647;
+  animation: bonsai-coach-in 0.25s ease-out;
+}
+@keyframes bonsai-coach-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.bonsai-coach__close {
+  all: unset;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #9ab2a1;
+  transition: background 0.15s, color 0.15s;
+}
+.bonsai-coach__close:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e9f3eb;
+}
+.bonsai-coach__title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  padding-right: 20px;
+}
+.bonsai-coach__body {
+  color: #c5d3cb;
+  font-size: 13px;
+}
+.bonsai-coach__good { color: #4ea76d; font-weight: 600; }
+.bonsai-coach__bad { color: #e8745a; font-weight: 600; }

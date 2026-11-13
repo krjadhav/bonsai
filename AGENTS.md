@@ -53,6 +53,21 @@ Read `.agents/skills/git-commit/SKILL.md` before committing; follow its diff rev
 
 If missing: `npx skills add https://github.com/github/awesome-copilot --skill git-commit --yes`.
 
+### Chrome Extensions
+
+[Upstream skill](https://github.com/GoogleChrome/modern-web-guidance) · [Local skill](.agents/skills/chrome-extensions/SKILL.md)
+
+Read `.agents/skills/chrome-extensions/SKILL.md` before any work on `extension/` — the skill covers Manifest V3 rules, service-worker lifetimes, content-script isolation, permission minimization, side panel vs popup choice, and Chrome Web Store publishing. Project specifics to keep in mind alongside the skill:
+
+- Manifest V3 service worker — background work lives in `extension/background.js` (module). No persistent globals; re-hydrate state from `chrome.storage.local` on wake.
+- Storage keys owned by this extension: `bonsaiUser`, `bonsaiCaptures`, `bonsaiConfig`, `bonsaiOnboarded`, `bonsaiCoachSeen`. Reuse these before adding new keys.
+- Content script injects into `article[role="article"]` on x.com/twitter.com. Scope all injected UI with `#bonsai-*` ids and `.bonsai-*` classes — never reuse X's class names or you'll fight their styles.
+- OAuth via `chrome.identity.getAuthToken`. Keep scopes to `openid email profile`. Never commit the actual OAuth client id into `manifest.json` on `main`.
+- Side panel (`sidebar.html`) is opened via `chrome.sidePanel.open({ windowId })` from a user gesture only; MV3 rejects async-opened panels.
+- Verification: load unpacked via `chrome://extensions` with Developer mode on, reload after every change, and watch the service-worker console (`Inspect views → service worker`) for silent failures.
+
+If missing: `npx skills add GoogleChrome/modern-web-guidance --skill chrome-extensions --yes`.
+
 ### Security: Cloudflare Security Audit
 
 [Upstream skill](https://github.com/cloudflare/security-audit-skill) · [Local skill](.agents/skills/security-audit/SKILL.md)

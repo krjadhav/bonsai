@@ -12,9 +12,12 @@
 
   const PROCESSED = "bonsaiProcessed";
   const STORAGE_KEY = "bonsaiCaptures";
+  const ONBOARDED_KEY = "bonsaiOnboarded";
+  const COACH_KEY = "bonsaiCoachSeen";
   const MAX_LOCAL = 500;
 
   const seenThisSession = new Set();
+  let coachEl = null;
 
   // --------------------------------------------------------------------------
   // Extract tweet payload from an <article> node
@@ -178,8 +181,14 @@
       persistDecision(payload, decision);
     }
 
-    btnYes.addEventListener("click", (e) => handleChoose(e, "yes"));
-    btnNo.addEventListener("click", (e) => handleChoose(e, "no"));
+    btnYes.addEventListener("click", (e) => {
+      handleChoose(e, "yes");
+      dismissCoach();
+    });
+    btnNo.addEventListener("click", (e) => {
+      handleChoose(e, "no");
+      dismissCoach();
+    });
     btnRemove.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -219,6 +228,48 @@
   }
 
   // --------------------------------------------------------------------------
+  // First-visit coach overlay — a floating card that nudges the user to rate
+  // their first post. Only shows for users who finished popup onboarding and
+  // haven't dismissed it. Clears itself on first rating or explicit close.
+  // --------------------------------------------------------------------------
+  async function maybeShowCoach() {
+    const { [ONBOARDED_KEY]: onboarded, [COACH_KEY]: seen } =
+      await chrome.storage.local.get([ONBOARDED_KEY, COACH_KEY]);
+    if (!onboarded || seen) return;
+    mountCoach();
+  }
+
+  function mountCoach() {
+    if (coachEl || document.getElementById("bonsai-coach")) return;
+    const el = document.createElement("div");
+    el.id = "bonsai-coach";
+    el.className = "bonsai-coach";
+    el.innerHTML = `
+      <button type="button" class="bonsai-coach__close" aria-label="Dismiss">
+        <svg class="bonsai-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="bonsai-coach__title">Try it on your first post</div>
+      <div class="bonsai-coach__body">
+        Tap <b class="bonsai-coach__good">More like this</b> on a post you want more of, or
+        <b class="bonsai-coach__bad">Less like this</b> on one you don't. Bonsai learns from both.
+      </div>
+    `;
+    el.querySelector(".bonsai-coach__close").addEventListener("click", dismissCoach);
+    document.body.appendChild(el);
+    coachEl = el;
+  }
+
+  function dismissCoach() {
+    if (coachEl) {
+      coachEl.remove();
+      coachEl = null;
+    }
+    const existing = document.getElementById("bonsai-coach");
+    if (existing) existing.remove();
+    chrome.storage.local.set({ [COACH_KEY]: true }).catch(() => {});
+  }
+
+  // --------------------------------------------------------------------------
   // Observer wiring — X virtualizes the timeline aggressively
   // --------------------------------------------------------------------------
   function scan(root = document) {
@@ -238,6 +289,7 @@
   function boot() {
     scan();
     observer.observe(document.body, { childList: true, subtree: true });
+    maybeShowCoach();
   }
 
   if (document.readyState === "loading") {
