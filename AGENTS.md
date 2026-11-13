@@ -55,7 +55,11 @@ If missing: `npx skills add https://github.com/github/awesome-copilot --skill gi
 
 ### Chrome Extensions
 
-[Upstream skill](https://github.com/GoogleChrome/modern-web-guidance) · [Local skill](.agents/skills/chrome-extensions/SKILL.md)
+[Chrome's coding-agent guide](https://developer.chrome.com/docs/extensions/ai/build-with-ai) · [Upstream skill](https://github.com/GoogleChrome/modern-web-guidance) · [Local skill](.agents/skills/chrome-extensions/SKILL.md)
+
+Use both `chrome-extensions` and the companion `modern-web-guidance` skill. Load relevant companion references for performance, accessibility, modern Web APIs, and built-in AI; for AI features, account for hardware support, model downloads, security, and fallbacks.
+
+For initial setup or an intentional migration to Chrome's recommended installer, run `npx modern-web-guidance@latest install --choose` and select the coding agents in use plus both skills. This installer manages automatic skill updates; adopting it is an explicit exception to the manual-update policy above. Review changed guidance before applying it. Until that migration, retain the existing locally installed skill. Restore missing skills with `npx skills add GoogleChrome/modern-web-guidance --skill chrome-extensions --yes`; use `--skill modern-web-guidance` instead for the companion skill.
 
 Read `.agents/skills/chrome-extensions/SKILL.md` before any work on `extension/` — the skill covers Manifest V3 rules, service-worker lifetimes, content-script isolation, permission minimization, side panel vs popup choice, and Chrome Web Store publishing. Project specifics to keep in mind alongside the skill:
 
@@ -64,9 +68,19 @@ Read `.agents/skills/chrome-extensions/SKILL.md` before any work on `extension/`
 - Content script injects into `article[role="article"]` on x.com/twitter.com. Scope all injected UI with `#bonsai-*` ids and `.bonsai-*` classes — never reuse X's class names or you'll fight their styles.
 - OAuth via `chrome.identity.getAuthToken`. Keep scopes to `openid email profile`. Never commit the actual OAuth client id into `manifest.json` on `main`.
 - Side panel (`sidebar.html`) is opened via `chrome.sidePanel.open({ windowId })` from a user gesture only; MV3 rejects async-opened panels.
-- Verification: load unpacked via `chrome://extensions` with Developer mode on, reload after every change, and watch the service-worker console (`Inspect views → service worker`) for silent failures.
+- Verification: use the browser workflow below for extension behavior changes.
 
-If missing: `npx skills add GoogleChrome/modern-web-guidance --skill chrome-extensions --yes`.
+#### Browser verification
+
+Configure [Chrome DevTools MCP](https://github.com/ChromeDevTools/chrome-devtools-mcp) using the client's supported configuration format. Its server command is `npx`, with arguments `-y`, `chrome-devtools-mcp@latest`, `--categoryExtensions`, and `--autoConnect`. The extensions flag enables extension tools; auto-connect uses an existing Chrome profile for built-in AI and sign-in testing. The `@latest` setup follows upstream releases; use a reviewed, pinned version if keeping tool updates manual.
+
+Enable remote debugging at `chrome://inspect/#remote-debugging`, restart the agent after configuration changes, and have the browser user accept Chrome's connection prompt for each new browser session. Confirm extension tools are available; installing a DevTools skill alone does not configure the MCP server.
+
+Load the unpacked `extension/`, reload it after changes, trigger the affected actions, and inspect the relevant popup, side panel, content script, and service worker. Check console errors and relevant network failures, including persistence after worker restart. If automation is unavailable, load unpacked via `chrome://extensions` with Developer mode enabled and inspect manually (`Inspect views → service worker`). Report which flows were verified and any browser checks still outstanding; static checks alone do not verify extension behavior.
+
+#### Chrome Web Store metadata
+
+When creating or changing extension functionality, create or maintain root `CHROMEWEBSTORE.md` using `.agents/skills/chrome-extensions/references/webstore/chromewebstore-template.md`. Keep listing copy, permission and host-permission justifications, privacy/data-use disclosures, version history, and asset readiness aligned with the actual manifest and code. Update relevant sections as features, permissions, data handling, or assets change, and record rejection fixes. Mark unknown publication details as pending instead of inventing them. Read the skill's pre-publish checklist before preparing a submission.
 
 ### Security: Cloudflare Security Audit
 
