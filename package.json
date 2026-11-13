@@ -4,6 +4,8 @@
   "private": true,
   "description": "Bonsai — self-improving feed filter chrome extension",
   "scripts": {
+    "check": "node scripts/check-extension.mjs",
+    "prezip": "npm run check",
     "zip": "cd extension && zip -r ../dist/bonsai-extension.zip . -x '*.DS_Store'",
     "version:sync": "node -e \"const p=require('./package.json');const fs=require('fs');const m=JSON.parse(fs.readFileSync('extension/manifest.json','utf8'));m.version=p.version;fs.writeFileSync('extension/manifest.json',JSON.stringify(m,null,2)+'\\n');console.log('synced',p.version);\""
   }

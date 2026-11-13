@@ -68,7 +68,25 @@ Read `.agents/skills/chrome-extensions/SKILL.md` before any work on `extension/`
 - Content script injects into `article[role="article"]` on x.com/twitter.com. Scope all injected UI with `#bonsai-*` ids and `.bonsai-*` classes — never reuse X's class names or you'll fight their styles.
 - OAuth via `chrome.identity.getAuthToken`. Keep scopes to `openid email profile`. Never commit the actual OAuth client id into `manifest.json` on `main`.
 - Side panel (`sidebar.html`) is opened via `chrome.sidePanel.open({ windowId })` from a user gesture only; MV3 rejects async-opened panels.
-- Verification: use the browser workflow below for extension behavior changes.
+- Verification: run the preflight check below, then use the browser workflow for extension behavior changes.
+
+#### Preflight check
+
+Before zipping, publishing, or asking the user to reload the extension, run:
+
+```sh
+npm run check
+```
+
+This runs `scripts/check-extension.mjs`, a dependency-free Node validator that:
+
+- Flags any DOM id referenced by JS (`getElementById`, `querySelector("#…")`, `$("…")`) that has no matching `id="…"` in any extension HTML or dynamic creation site. This is the class of TypeError (`Cannot set properties of null`) that keeps recurring when markup and script drift.
+- Verifies every file path in `manifest.json` (icons, popup, service worker, side panel, content scripts, web-accessible resources) exists on disk.
+- Verifies `package.json` and `extension/manifest.json` versions match.
+- Verifies `<script src>` and `<link href>` in extension HTML resolve to real files.
+- Warns if `oauth2.client_id` is still a placeholder.
+
+`npm run zip` chains it via `prezip`, so release artifacts cannot be built with any of these defects. Do not disable the check; fix the mismatch instead.
 
 #### Browser verification
 
@@ -112,3 +130,44 @@ Auto-fix lint + format: ```uv run ruff check --fix . && uv run ruff format .```
 Type-check: ```uv run pyrefly check```
 Test (all): ```uv run pytest```
 Test (single file): ```uv run pytest --capture=no <path>```
+
+### Google Cloud (Cloud Run + Firestore)
+
+[Upstream skill](https://github.com/google/skills/tree/main/skills/gcloud) · [Local skill](.agents/skills/gcloud/SKILL.md)
+
+Read `.agents/skills/gcloud/SKILL.md` before any `gcloud` work — it imposes a mandatory pre-condition: validate leaf-level syntax with `gcloud help <command>` or `gcloud topic …` before proposing flags, running commands, or writing step-by-step plans. Pre-existing knowledge of `gcloud` flags is treated as stale.
+
+If missing: `npx skills add google/skills --skill gcloud --yes`.
+
+Project context:
+
+- Project id: `bonsai-feed-filter`. Region: `us-central1`. Service: `bonsai-api` on Cloud Run. Datastore: Firestore native, collection `bonsai_posts`.
+- The runtime service account is the Compute Engine default SA, granted `roles/datastore.user`. End-user auth is enforced inside FastAPI by verifying Google OAuth bearer tokens; Cloud Run invoker IAM is intentionally `--allow-unauthenticated`.
+- Firestore free tier (50k reads / 20k writes per day) is the cost ceiling. Writes are merge-upsert, doc id `{user_sub}_{post_id}` — deliberate so dedup is structural, not query-based.
+
+Routine commands (always scope `--project=bonsai-feed-filter` and append `--quiet` for non-interactive runs; follow the skill's help-first rule):
+
+```sh
+# Local ADC for `uv run` against real Firestore
+gcloud auth application-default login
+gcloud auth application-default set-quota-project bonsai-feed-filter
+
+# Deploy from source (Cloud Build picks up backend/Dockerfile)
+cd backend && gcloud run deploy bonsai-api \
+  --source=. --region=us-central1 --project=bonsai-feed-filter \
+  --allow-unauthenticated --min-instances=0 --max-instances=5 \
+  --cpu=1 --memory=512Mi --timeout=30 \
+  --set-env-vars="GCP_PROJECT_ID=bonsai-feed-filter,FIRESTORE_COLLECTION=bonsai_posts,GOOGLE_OAUTH_CLIENT_ID=REPLACE_ME.apps.googleusercontent.com,ALLOWED_ORIGINS=chrome-extension://REPLACE_WITH_EXTENSION_ID" \
+  --quiet
+
+# Rotate env config without redeploy
+gcloud run services update bonsai-api --region=us-central1 \
+  --project=bonsai-feed-filter \
+  --update-env-vars="ALLOWED_ORIGINS=chrome-extension://NEW_ID" --quiet
+
+# Tail recent logs for a given service
+gcloud run services logs read bonsai-api --region=us-central1 \
+  --project=bonsai-feed-filter --limit=100
+```
+
+Full one-time setup (APIs enable, Firestore create, Artifact Registry, IAM) lives in `backend/README.md`. Prefer that doc over free-form commands; update it when infra conventions change.
