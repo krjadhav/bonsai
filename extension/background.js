@@ -30,22 +30,45 @@ chrome.runtime.onInstalled.addListener(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Google OAuth — launchWebAuthFlow path.
+// Google OAuth — dual flow.
 //
-// Why not chrome.identity.getAuthToken? That API is bound to Chrome's native
-// Google account integration; it fails with "The user turned off browser
-// signin" when Chrome sign-in is disabled, and also breaks on Chromium-based
-// browsers that ship without Google API keys (Brave, Arc, plain Chromium).
-// launchWebAuthFlow is the standards-based OAuth 2.0 implicit flow routed
-// through chrome.identity.getRedirectURL() — it works in every Chromium flavor
-// regardless of the user's sync settings.
+// Two client types work with two different code paths:
 //
-// Requirement: the OAuth client in manifest.json MUST be a Google Cloud
-// Console client of type "Web application" (not "Chrome Extension") with
-// `https://<extension-id>.chromiumapp.org/` added as an Authorized redirect
-// URI. Pin the extension ID by adding a `key` to manifest.json during
-// development so the redirect URI doesn't change on every unpacked reload.
+//   * Chrome-extension OAuth client → chrome.identity.getAuthToken
+//     - Requires the user to have Chrome native sign-in enabled
+//       (chrome://settings/syncSetup → "Allow Chrome sign-in").
+//     - Requires the loaded extension's id to match the client's Item ID.
+//       Pin with a manifest `key` field so the unpacked id is deterministic.
+//     - Does not work in Chromium forks that ship without Google API keys
+//       (Brave, Arc, plain Chromium).
+//
+//   * Web-application OAuth client → chrome.identity.launchWebAuthFlow
+//     - Works regardless of Chrome sign-in state, works in every Chromium
+//       flavor.
+//     - Requires `https://<extension-id>.chromiumapp.org/` listed as an
+//       Authorized redirect URI on the client in Cloud Console.
+//
+// We try getAuthToken first because it has nicer UX when it works (the
+// account picker opens inside Chrome itself rather than a new tab). On any
+// failure — "The user turned off browser signin", "OAuth2 not granted",
+// "bad client id" — we fall through to launchWebAuthFlow. One of the two
+// client types in Cloud Console will succeed; the other will fail with a
+// distinct error, which is logged for debugging.
+//
+// Full setup for both paths: OAUTH-SETUP.md at the repo root.
 // ---------------------------------------------------------------------------
+function getAuthTokenInteractive() {
+  return new Promise((resolve, reject) => {
+    chrome.identity.getAuthToken({ interactive: true }, (token) => {
+      if (chrome.runtime.lastError || !token) {
+        reject(new Error(chrome.runtime.lastError?.message || "getAuthToken returned no token"));
+        return;
+      }
+      resolve(token);
+    });
+  });
+}
+
 function launchWebAuthFlow(url) {
   return new Promise((resolve, reject) => {
     chrome.identity.launchWebAuthFlow({ url, interactive: true }, (redirectUrl) => {
@@ -77,7 +100,7 @@ async function fetchUserInfo(token) {
   return res.json();
 }
 
-async function signIn() {
+async function signInViaWebFlow() {
   const manifest = chrome.runtime.getManifest();
   const clientId = manifest.oauth2?.client_id;
   if (!clientId || clientId.startsWith("REPLACE_")) {
@@ -95,7 +118,28 @@ async function signIn() {
   authUrl.searchParams.set("prompt", "consent");
 
   const redirect = await launchWebAuthFlow(authUrl.toString());
-  const token = parseTokenFromRedirect(redirect);
+  return parseTokenFromRedirect(redirect);
+}
+
+async function signIn() {
+  let token;
+  let getAuthTokenError;
+  try {
+    token = await getAuthTokenInteractive();
+  } catch (e) {
+    getAuthTokenError = e;
+    console.info("getAuthToken failed, falling back to launchWebAuthFlow:", e?.message || e);
+    try {
+      token = await signInViaWebFlow();
+    } catch (e2) {
+      // Surface both error messages so the popup hint can identify which
+      // OAuth client path the user has configured.
+      throw new Error(
+        `getAuthToken: ${getAuthTokenError?.message || getAuthTokenError}; ` +
+          `launchWebAuthFlow: ${e2?.message || e2}`,
+      );
+    }
+  }
   const info = await fetchUserInfo(token);
   const user = {
     email: info.email,
@@ -112,14 +156,22 @@ async function signOut() {
   const { [USER_KEY]: user } = await chrome.storage.local.get(USER_KEY);
   if (user?.token) {
     try {
-      // Standard OAuth 2.0 revoke endpoint. launchWebAuthFlow doesn't use
-      // chrome.identity's token cache, so no removeCachedAuthToken needed.
       await fetch(`https://oauth2.googleapis.com/revoke?token=${user.token}`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       });
     } catch (e) {
       console.warn("revoke failed", e);
+    }
+    // getAuthToken caches tokens in the chrome.identity cache; clear it so a
+    // subsequent sign-in forces a fresh interactive flow. No-op if the token
+    // came from launchWebAuthFlow (not in the cache).
+    try {
+      await new Promise((resolve) =>
+        chrome.identity.removeCachedAuthToken({ token: user.token }, () => resolve(undefined)),
+      );
+    } catch (e) {
+      console.warn("removeCachedAuthToken failed", e);
     }
   }
   await chrome.storage.local.remove(USER_KEY);

@@ -66,16 +66,21 @@ async function signIn() {
   try {
     const user = await chrome.runtime.sendMessage({ type: "bonsai:signIn" });
     if (user && user.error) {
-      const looksLikeConfig = /redirect_uri|invalid_client|Authorization page|invalid request/i.test(
-        user.error,
-      );
+      const looksLikeConfig =
+        /redirect_uri|invalid_client|Authorization page|invalid request|turned off browser signin|bad client id|OAuth2/i.test(
+          user.error,
+        );
       let hint = "";
       if (looksLikeConfig) {
         const redirectUri = chrome.identity.getRedirectURL();
+        const extId = chrome.runtime.id;
         hint =
-          "\n\nFix: in Google Cloud Console (project bonsai-feed-filter) create an OAuth client of type 'Web application' and add this authorized redirect URI:\n\n" +
-          redirectUri +
-          "\n\nThen copy the new client id into extension/manifest.json. Full steps in OAUTH-SETUP.md.";
+          `\n\nExtension id:  ${extId}` +
+          `\nRedirect URI:  ${redirectUri}` +
+          `\n\nPick ONE OAuth client path in Cloud Console (project bonsai-feed-filter):` +
+          `\n  A) Chrome-extension client → set Item ID = ${extId} and enable Chrome signin.` +
+          `\n  B) Web-application client → add Authorized redirect URI = ${redirectUri}` +
+          `\n\nFull walkthrough: OAUTH-SETUP.md.`;
       }
       alert("Sign-in failed: " + user.error + hint);
     }

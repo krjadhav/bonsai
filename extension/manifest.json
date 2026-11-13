@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Bonsai — feed filter",
   "short_name": "Bonsai",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Teach your X feed what you want to see. Yes/No your way to a calmer timeline.",
   "action": {
     "default_title": "Bonsai",
@@ -46,7 +46,7 @@
     }
   ],
   "oauth2": {
-    "client_id": "REPLACE_WITH_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com",
+    "client_id": "1000316385691-8nou638uh23isgsdbginikgjt1bc0qtq.apps.googleusercontent.com",
     "scopes": [
       "openid",
       "email",
