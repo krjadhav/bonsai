@@ -29,9 +29,15 @@ if ! [[ "$EXT_ID" =~ ^[a-p]{32}$ ]]; then
 fi
 
 PROJECT="bonsai-feed-filter"
-REGION="us-central1"
 SERVICE="bonsai-api"
 ORIGIN="chrome-extension://${EXT_ID}"
+
+# Discover the region the service actually lives in; failing that, fall back
+# to us-central1. Avoids assuming a hard-coded region.
+REGION="$(gcloud run services list --project="${PROJECT}" \
+  --filter="metadata.name=${SERVICE}" --format='value(REGION)' --quiet 2>/dev/null \
+  | head -n1)"
+REGION="${REGION:-us-central1}"
 
 say() { printf '\n==> %s\n' "$*"; }
 

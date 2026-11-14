@@ -12,9 +12,10 @@ const CONFIG_KEY = "bonsaiConfig";
 
 /** @type {BonsaiConfig} */
 const DEFAULT_CONFIG = {
-  // Leave empty until the user points at a deployed backend. When empty,
-  // captures stay in chrome.storage.local and are *not* POSTed anywhere.
-  apiBaseUrl: "",
+  // Public Cloud Run URL for the bonsai-api service. Overridable per-install
+  // via chrome.storage.local { bonsaiConfig: { apiBaseUrl: "..." } } sent as
+  // a bonsai:setConfig message — useful for local backend development.
+  apiBaseUrl: "https://bonsai-api-1000316385691.asia-south1.run.app",
 };
 
 /** @returns {Promise<BonsaiConfig>} */

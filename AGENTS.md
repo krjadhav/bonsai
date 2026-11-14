@@ -147,7 +147,7 @@ If missing: `npx skills add google/skills --skill gcloud --yes`.
 
 Project context:
 
-- Project id: `bonsai-feed-filter`. Region: `us-central1`. Service: `bonsai-api` on Cloud Run. Datastore: Firestore native, collection `bonsai_posts`.
+- Project id: `bonsai-feed-filter`. Region: `asia-south1`. Service: `bonsai-api` on Cloud Run. Datastore: Firestore native, collection `bonsai_posts`.
 - The runtime service account is the Compute Engine default SA, granted `roles/datastore.user`. End-user auth is enforced inside FastAPI by verifying Google OAuth bearer tokens; Cloud Run invoker IAM is intentionally `--allow-unauthenticated`.
 - Firestore free tier (50k reads / 20k writes per day) is the cost ceiling. Writes are merge-upsert, doc id `{user_sub}_{post_id}` — deliberate so dedup is structural, not query-based.
 
@@ -160,19 +160,19 @@ gcloud auth application-default set-quota-project bonsai-feed-filter
 
 # Deploy from source (Cloud Build picks up backend/Dockerfile)
 cd backend && gcloud run deploy bonsai-api \
-  --source=. --region=us-central1 --project=bonsai-feed-filter \
+  --source=. --region=asia-south1 --project=bonsai-feed-filter \
   --allow-unauthenticated --min-instances=0 --max-instances=5 \
   --cpu=1 --memory=512Mi --timeout=30 \
   --set-env-vars="GCP_PROJECT_ID=bonsai-feed-filter,FIRESTORE_COLLECTION=bonsai_posts,GOOGLE_OAUTH_CLIENT_ID=REPLACE_ME.apps.googleusercontent.com,ALLOWED_ORIGINS=chrome-extension://REPLACE_WITH_EXTENSION_ID" \
   --quiet
 
 # Rotate env config without redeploy
-gcloud run services update bonsai-api --region=us-central1 \
+gcloud run services update bonsai-api --region=asia-south1 \
   --project=bonsai-feed-filter \
   --update-env-vars="ALLOWED_ORIGINS=chrome-extension://NEW_ID" --quiet
 
 # Tail recent logs for a given service
-gcloud run services logs read bonsai-api --region=us-central1 \
+gcloud run services logs read bonsai-api --region=asia-south1 \
   --project=bonsai-feed-filter --limit=100
 ```
 
