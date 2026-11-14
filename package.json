@@ -1,6 +1,6 @@
 {
   "name": "bonsai-feed-filter",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "private": true,
   "description": "Bonsai — self-improving feed filter chrome extension",
   "scripts": {
@@ -21,6 +21,7 @@
     "@types/node": "^26.6.6",
     "eslint": "^10.14.0",
     "globals": "^17.14.0",
+    "playwright": "^1.65.1",
     "puppeteer": "^25.17.0",
     "typescript": "^7.0.2"
   }

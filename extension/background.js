@@ -284,22 +284,47 @@ async function syncAll() {
 // ---------------------------------------------------------------------------
 const OAUTH_REDIRECT_URI = chrome.identity.getRedirectURL();
 
+/**
+ * @param {string} url
+ * @param {number | undefined} tabId
+ */
+function handleRedirectUrl(url, tabId) {
+  const hash = url.split("#")[1] || "";
+  const params = new URLSearchParams(hash);
+  const token = params.get("access_token");
+  const err = params.get("error");
+  if (tabId !== undefined && tabId >= 0) {
+    chrome.tabs.remove(tabId).catch(() => {});
+  }
+  if (err || !token) {
+    console.warn("OAuth redirect without token:", err || "no access_token");
+    return;
+  }
+  completeSignIn(token).catch((e) => console.error("completeSignIn failed", e));
+}
+
+// Primary catcher: webRequest.onBeforeRequest fires before the network stack
+// starts DNS lookup. Google's server-side 302 to chromiumapp.org triggers
+// this immediately — we close the tab before the DNS error page renders.
+chrome.webRequest.onBeforeRequest.addListener(
+  /** @param {chrome.webRequest.OnBeforeRequestDetails} details */
+  (details) => {
+    if (details.type !== "main_frame") return undefined;
+    if (!details.url.startsWith(OAUTH_REDIRECT_URI)) return undefined;
+    handleRedirectUrl(details.url, details.tabId);
+    return undefined;
+  },
+  { urls: [`${OAUTH_REDIRECT_URI}*`] },
+);
+
+// Fallback: webNavigation.onBeforeNavigate catches client-initiated (non-302)
+// retries. Harmless to double-fire — handleRedirectUrl is idempotent-ish
+// (second completeSignIn just re-stores the same user).
 chrome.webNavigation.onBeforeNavigate.addListener(
   (details) => {
-    if (details.frameId !== 0) return; // only top-frame navigations
-    const url = details.url;
-    if (!url.startsWith(OAUTH_REDIRECT_URI)) return;
-    const hash = url.split("#")[1] || "";
-    const params = new URLSearchParams(hash);
-    const token = params.get("access_token");
-    const err = params.get("error");
-    // Fire-and-forget: close tab immediately, store user asynchronously.
-    chrome.tabs.remove(details.tabId).catch(() => {});
-    if (err || !token) {
-      console.warn("OAuth redirect without token:", err || "no access_token");
-      return;
-    }
-    completeSignIn(token).catch((e) => console.error("completeSignIn failed", e));
+    if (details.frameId !== 0) return;
+    if (!details.url.startsWith(OAUTH_REDIRECT_URI)) return;
+    handleRedirectUrl(details.url, details.tabId);
   },
   { url: [{ urlPrefix: OAUTH_REDIRECT_URI }] },
 );
