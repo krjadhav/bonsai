@@ -61,15 +61,7 @@ Use both `chrome-extensions` and the companion `modern-web-guidance` skill. Load
 
 For initial setup or an intentional migration to Chrome's recommended installer, run `npx modern-web-guidance@latest install --choose` and select the coding agents in use plus both skills. This installer manages automatic skill updates; adopting it is an explicit exception to the manual-update policy above. Review changed guidance before applying it. Until that migration, retain the existing locally installed skill. Restore missing skills with `npx skills add GoogleChrome/modern-web-guidance --skill chrome-extensions --yes`; use `--skill modern-web-guidance` instead for the companion skill.
 
-Read `.agents/skills/chrome-extensions/SKILL.md` before any work on `extension/` — the skill covers Manifest V3 rules, service-worker lifetimes, content-script isolation, permission minimization, side panel vs popup choice, and Chrome Web Store publishing. Project specifics to keep in mind alongside the skill:
-
-- Manifest V3 service worker — background work lives in `extension/background.js` (module). No persistent globals; re-hydrate state from `chrome.storage.local` on wake.
-- Storage keys owned by this extension: `bonsaiUser`, `bonsaiCaptures`, `bonsaiConfig`, `bonsaiOnboarded`, `bonsaiCoachSeen`. Reuse these before adding new keys.
-- Content script injects into `article[role="article"]` on x.com/twitter.com. Scope all injected UI with `#bonsai-*` ids and `.bonsai-*` classes — never reuse X's class names or you'll fight their styles.
-- OAuth: popup opens the Google auth URL directly in a new tab. `background.js` registers `chrome.webRequest.onBeforeRequest` on `https://*.chromiumapp.org/*` — fires BEFORE DNS lookup, so we extract the access token from the URL fragment and close the tab before any error page renders. A `chrome.webNavigation.onBeforeNavigate` listener is kept as a fallback for client-initiated navigations that bypass the webRequest pipeline. Do NOT revert to `chrome.identity.launchWebAuthFlow` — Playwright CDP testing proved it doesn't reliably intercept Google's server-side 302 to chromiumapp.org on current Chrome builds. Scopes: `openid email profile`.
-- OAuth client setup lives in `.local/OAUTH-SETUP.md`. Google provides no CLI or API for creating OAuth clients — do not try to automate this via `gcloud`. The client in `manifest.json` must be a **Web application** type with `https://<extension-id>.chromiumapp.org/` as an authorized redirect URI (trailing slash required). Extension id must be pinned via `node scripts/pin-extension-id.mjs` so the redirect URI doesn't drift across unpacked reloads. Direct users at `.local/OAUTH-SETUP.md` whenever sign-in fails with `redirect_uri_mismatch`, `invalid_client`, `access blocked`, or `bad client id`.
-- Side panel (`sidebar.html`) is opened via `chrome.sidePanel.open({ windowId })` from a user gesture only; MV3 rejects async-opened panels.
-- Verification: run the preflight check below, then use the browser workflow for extension behavior changes.
+Read `.agents/skills/chrome-extensions/SKILL.md` before any work on `extension/` — the skill covers Manifest V3 rules, service-worker lifetimes, content-script isolation, permission minimization, side panel vs popup choice, and Chrome Web Store publishing.
 
 #### Preflight (five gates)
 

@@ -1,6 +1,6 @@
 // @ts-check
 // Bonsai background service worker (MV3, module).
-// - Handles Google OAuth via chrome.identity.getAuthToken + launchWebAuthFlow.
+// - Catches the OAuth redirect to <ext-id>.chromiumapp.org and stores the user.
 // - Routes messages between content script / popup / sidebar.
 // - Sends captures to the backend (/posts) for persistence when signed in.
 
@@ -36,77 +36,32 @@ chrome.runtime.onInstalled.addListener(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Google OAuth — dual flow.
+// OAuth redirect catch.
 //
-// Two client types work with two different code paths:
+// popup.js opens Google's /o/oauth2/v2/auth URL in a new tab. Google
+// returns a 302 to <ext-id>.chromiumapp.org with the access token in the
+// URL fragment. chromiumapp.org does not resolve DNS — if we don't close
+// the tab before the browser tries to navigate, the user sees a
+// DNS_PROBE_FINISHED_NXDOMAIN error page.
 //
-//   * Chrome-extension OAuth client → chrome.identity.getAuthToken
-//     - Requires the user to have Chrome native sign-in enabled
-//       (chrome://settings/syncSetup → "Allow Chrome sign-in").
-//     - Requires the loaded extension's id to match the client's Item ID.
-//       Pin with a manifest `key` field so the unpacked id is deterministic.
-//     - Does not work in Chromium forks that ship without Google API keys
-//       (Brave, Arc, plain Chromium).
+// webRequest.onBeforeRequest fires BEFORE the network stack starts DNS
+// lookup, so we extract the token and close the tab before any error page
+// renders. webNavigation.onBeforeNavigate is a fallback for navigations
+// that bypass the webRequest pipeline (e.g. a manual refresh of a cached
+// URL). The listener filter is pinned to the extension-id-specific redirect
+// URI, so it only fires for our own flow.
 //
-//   * Web-application OAuth client → chrome.identity.launchWebAuthFlow
-//     - Works regardless of Chrome sign-in state, works in every Chromium
-//       flavor.
-//     - Requires `https://<extension-id>.chromiumapp.org/` listed as an
-//       Authorized redirect URI on the client in Cloud Console.
-//
-// We try getAuthToken first because it has nicer UX when it works (the
-// account picker opens inside Chrome itself rather than a new tab). On any
-// failure — "The user turned off browser signin", "OAuth2 not granted",
-// "bad client id" — we fall through to launchWebAuthFlow. One of the two
-// client types in Cloud Console will succeed; the other will fail with a
-// distinct error, which is logged for debugging.
-//
-// Full setup for both paths: OAUTH-SETUP.md at the repo root.
+// Previously tried (do not revive):
+//   * chrome.identity.getAuthToken — requires Chrome native sign-in enabled;
+//     fails with "The user turned off browser signin" otherwise. Does not
+//     work on Brave / Arc / plain Chromium.
+//   * chrome.identity.launchWebAuthFlow — does not reliably intercept
+//     Google's server-side 302 to chromiumapp.org on current Chrome builds.
+//     The tab navigates to the URL, DNS fails, interception is orphaned.
+//     Playwright CDP trace confirmed only webNavigation.onErrorOccurred
+//     fires (not onBeforeNavigate) for the 302 target.
 // ---------------------------------------------------------------------------
-
-/** @returns {Promise<string>} */
-function getAuthTokenInteractive() {
-  return new Promise((resolve, reject) => {
-    chrome.identity.getAuthToken({ interactive: true }, (token) => {
-      if (chrome.runtime.lastError || !token) {
-        reject(new Error(chrome.runtime.lastError?.message || "getAuthToken returned no token"));
-        return;
-      }
-      resolve(/** @type {string} */ (token));
-    });
-  });
-}
-
-/**
- * @param {string} url
- * @returns {Promise<string>}
- */
-function launchWebAuthFlow(url) {
-  return new Promise((resolve, reject) => {
-    chrome.identity.launchWebAuthFlow({ url, interactive: true }, (redirectUrl) => {
-      if (chrome.runtime.lastError || !redirectUrl) {
-        reject(new Error(chrome.runtime.lastError?.message || "launchWebAuthFlow returned no URL"));
-        return;
-      }
-      resolve(redirectUrl);
-    });
-  });
-}
-
-/**
- * @param {string} redirectUrl
- * @returns {string}
- */
-function parseTokenFromRedirect(redirectUrl) {
-  const hash = redirectUrl.split("#")[1] || "";
-  const params = new URLSearchParams(hash);
-  const token = params.get("access_token");
-  if (!token) {
-    const err = params.get("error") || "missing access_token in redirect";
-    throw new Error(err);
-  }
-  return token;
-}
+const OAUTH_REDIRECT_URI = chrome.identity.getRedirectURL();
 
 /**
  * @param {string} token
@@ -120,43 +75,14 @@ async function fetchUserInfo(token) {
   return res.json();
 }
 
-async function signInViaWebFlow() {
-  const manifest = chrome.runtime.getManifest();
-  const clientId = manifest.oauth2?.client_id;
-  if (!clientId || clientId.startsWith("REPLACE_")) {
-    throw new Error("oauth2.client_id missing or placeholder in manifest.json");
-  }
-  const scopes = (manifest.oauth2?.scopes || ["openid", "email", "profile"]).join(" ");
-  const redirectUri = chrome.identity.getRedirectURL();
-
-  const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-  authUrl.searchParams.set("client_id", clientId);
-  authUrl.searchParams.set("response_type", "token");
-  authUrl.searchParams.set("redirect_uri", redirectUri);
-  authUrl.searchParams.set("scope", scopes);
-  authUrl.searchParams.set("include_granted_scopes", "true");
-  authUrl.searchParams.set("prompt", "consent");
-
-  const redirect = await launchWebAuthFlow(authUrl.toString());
-  return parseTokenFromRedirect(redirect);
-}
-
-/** @returns {Promise<BonsaiUser>} */
-async function signIn() {
-  /** @type {string | undefined} */
-  let token;
-  try {
-    token = await getAuthTokenInteractive();
-  } catch (e) {
-    const msg1 = /** @type {Error} */ (e)?.message || String(e);
-    console.info("getAuthToken failed, falling back to launchWebAuthFlow:", msg1);
-    try {
-      token = await signInViaWebFlow();
-    } catch (e2) {
-      const msg2 = /** @type {Error} */ (e2)?.message || String(e2);
-      throw new Error(`getAuthToken: ${msg1}; launchWebAuthFlow: ${msg2}`, { cause: e2 });
-    }
-  }
+/**
+ * Store a user object derived from an OAuth access token.
+ * Invoked by the webRequest listener above, or directly via
+ * bonsai:completeSignIn from popup-side flows.
+ * @param {string} token
+ */
+async function completeSignIn(token) {
+  if (!token) throw new Error("completeSignIn: missing token");
   const info = await fetchUserInfo(token);
   /** @type {BonsaiUser} */
   const user = {
@@ -170,6 +96,45 @@ async function signIn() {
   return user;
 }
 
+/**
+ * @param {string} url
+ * @param {number | undefined} tabId
+ */
+function handleRedirectUrl(url, tabId) {
+  const hash = url.split("#")[1] || "";
+  const params = new URLSearchParams(hash);
+  const token = params.get("access_token");
+  const err = params.get("error");
+  if (tabId !== undefined && tabId >= 0) {
+    chrome.tabs.remove(tabId).catch(() => {});
+  }
+  if (err || !token) {
+    console.warn("OAuth redirect without token:", err || "no access_token");
+    return;
+  }
+  completeSignIn(token).catch((e) => console.error("completeSignIn failed", e));
+}
+
+chrome.webRequest.onBeforeRequest.addListener(
+  /** @param {chrome.webRequest.OnBeforeRequestDetails} details */
+  (details) => {
+    if (details.type !== "main_frame") return undefined;
+    if (!details.url.startsWith(OAUTH_REDIRECT_URI)) return undefined;
+    handleRedirectUrl(details.url, details.tabId);
+    return undefined;
+  },
+  { urls: [`${OAUTH_REDIRECT_URI}*`] },
+);
+
+chrome.webNavigation.onBeforeNavigate.addListener(
+  (details) => {
+    if (details.frameId !== 0) return;
+    if (!details.url.startsWith(OAUTH_REDIRECT_URI)) return;
+    handleRedirectUrl(details.url, details.tabId);
+  },
+  { url: [{ urlPrefix: OAUTH_REDIRECT_URI }] },
+);
+
 async function signOut() {
   const { [USER_KEY]: userRaw } = await chrome.storage.local.get(USER_KEY);
   const user = /** @type {BonsaiUser | undefined} */ (userRaw);
@@ -181,13 +146,6 @@ async function signOut() {
       });
     } catch (e) {
       console.warn("revoke failed", e);
-    }
-    try {
-      await new Promise((resolve) =>
-        chrome.identity.removeCachedAuthToken({ token: user.token }, () => resolve(undefined)),
-      );
-    } catch (e) {
-      console.warn("removeCachedAuthToken failed", e);
     }
   }
   // Wipe everything — user key, captures, config overrides, onboarding flags.
@@ -266,97 +224,10 @@ async function syncAll() {
 // ---------------------------------------------------------------------------
 // Message routing
 // ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-// Manual OAuth redirect interception.
-//
-// chrome.identity.launchWebAuthFlow has been unreliable in our target Chrome
-// builds — Google's redirect to <ext-id>.chromiumapp.org lands in the tab
-// but Chrome identity fails to claim it, so the browser attempts a real DNS
-// lookup and renders DNS_PROBE_FINISHED_NXDOMAIN. We bypass launchWebAuthFlow
-// entirely: a webNavigation.onBeforeNavigate listener registered at SW
-// startup fires BEFORE any network activity, so we can pull the token out
-// of the URL fragment and close the tab without the error page ever
-// rendering.
-//
-// The listener filter is pinned to the exact redirect URI (which includes
-// the extension id), so it only ever fires on our own flow — zero
-// interference with other tabs.
-// ---------------------------------------------------------------------------
-const OAUTH_REDIRECT_URI = chrome.identity.getRedirectURL();
-
-/**
- * @param {string} url
- * @param {number | undefined} tabId
- */
-function handleRedirectUrl(url, tabId) {
-  const hash = url.split("#")[1] || "";
-  const params = new URLSearchParams(hash);
-  const token = params.get("access_token");
-  const err = params.get("error");
-  if (tabId !== undefined && tabId >= 0) {
-    chrome.tabs.remove(tabId).catch(() => {});
-  }
-  if (err || !token) {
-    console.warn("OAuth redirect without token:", err || "no access_token");
-    return;
-  }
-  completeSignIn(token).catch((e) => console.error("completeSignIn failed", e));
-}
-
-// Primary catcher: webRequest.onBeforeRequest fires before the network stack
-// starts DNS lookup. Google's server-side 302 to chromiumapp.org triggers
-// this immediately — we close the tab before the DNS error page renders.
-chrome.webRequest.onBeforeRequest.addListener(
-  /** @param {chrome.webRequest.OnBeforeRequestDetails} details */
-  (details) => {
-    if (details.type !== "main_frame") return undefined;
-    if (!details.url.startsWith(OAUTH_REDIRECT_URI)) return undefined;
-    handleRedirectUrl(details.url, details.tabId);
-    return undefined;
-  },
-  { urls: [`${OAUTH_REDIRECT_URI}*`] },
-);
-
-// Fallback: webNavigation.onBeforeNavigate catches client-initiated (non-302)
-// retries. Harmless to double-fire — handleRedirectUrl is idempotent-ish
-// (second completeSignIn just re-stores the same user).
-chrome.webNavigation.onBeforeNavigate.addListener(
-  (details) => {
-    if (details.frameId !== 0) return;
-    if (!details.url.startsWith(OAUTH_REDIRECT_URI)) return;
-    handleRedirectUrl(details.url, details.tabId);
-  },
-  { url: [{ urlPrefix: OAUTH_REDIRECT_URI }] },
-);
-
-/**
- * Store a user object derived from an OAuth access token.
- * Invoked either by the popup/oauth tab after an interactive flow, or
- * directly by the webNavigation redirect listener above.
- * @param {string} token
- */
-async function completeSignIn(token) {
-  if (!token) throw new Error("completeSignIn: missing token");
-  const info = await fetchUserInfo(token);
-  /** @type {BonsaiUser} */
-  const user = {
-    email: info.email,
-    name: info.name,
-    picture: info.picture,
-    sub: info.sub,
-    token,
-  };
-  await chrome.storage.local.set({ [USER_KEY]: user });
-  return user;
-}
-
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     try {
       switch (msg?.type) {
-        case "bonsai:signIn":
-          sendResponse(await signIn());
-          break;
         case "bonsai:completeSignIn":
           sendResponse(await completeSignIn(msg.token));
           break;
