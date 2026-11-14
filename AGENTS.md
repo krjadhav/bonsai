@@ -94,28 +94,6 @@ Enable remote debugging at `chrome://inspect/#remote-debugging`, restart the age
 
 Load the unpacked `extension/`, reload it after changes, trigger the affected actions, and inspect the relevant popup, side panel, content script, and service worker. Check console errors and relevant network failures, including persistence after worker restart. If automation is unavailable, load unpacked via `chrome://extensions` with Developer mode enabled and inspect manually (`Inspect views → service worker`). Report which flows were verified and any browser checks still outstanding; static checks alone do not verify extension behavior.
 
-#### Playwright CDP attach (live user profile)
-
-For flows that need a real Google account, real cookies, or the user's exact browser (not the puppeteer-bundled Chromium), attach to their running Chrome/Comet via CDP. `scripts/test-auth-flow.mjs` is the reference implementation — it attaches via `chromium.connectOverCDP("http://localhost:9222")`, finds the Bonsai MV3 service worker (playwright surfaces service workers out of the box; puppeteer's `targets()` does not), captures SW `console.*` output into a polled in-worker buffer (playwright has no SW console event and `newCDPSession` doesn't accept workers), and instruments `webNavigation` / `tabs` / `storage` listeners before triggering the flow. Every event is timestamped and printed so the failure window is obvious.
-
-Prerequisite: the user quits their browser and relaunches with `--remote-debugging-port=9222`:
-
-```sh
-pkill -f "Comet.app/Contents/MacOS/Comet"   # or Chrome, Brave, Arc …
-open -a Comet --args --remote-debugging-port=9222
-```
-
-Confirm port is open: `curl -s http://localhost:9222/json/version`.
-
-Then from the agent:
-
-```sh
-node scripts/test-auth-flow.mjs
-```
-
-The script opens the OAuth URL in a new tab and gives the user 90s to complete consent. Every `webNavigation.onBeforeNavigate`, `onCommitted`, `onErrorOccurred`, `tabs.onCreated`, `tabs.onRemoved`, and `storage.onChanged` event is logged with the exact URL. This is how the v0.7.2 `webRequest` fix was identified — the trace showed Google's 302 redirect did not fire `onBeforeNavigate` for the chromiumapp.org URL, only `onErrorOccurred` after DNS failed.
-
-Reuse this pattern for any extension bug that can't be reproduced in headless puppeteer. Do NOT run the script against a profile the user cares about without warning them — it opens real tabs and consumes real credentials.
 
 #### Chrome Web Store metadata
 
@@ -145,9 +123,9 @@ node .agents/skills/security-audit/validate-findings.cjs <audit-dir>/findings.js
 
 # For Backend in Python
 Commands
-Lint:	```uv run ruff check .```
+- Lint: ```uv run ruff check .```
 Format check: ```uv run ruff format --check .```
-Auto-fix lint + format: ```uv run ruff check --fix . && uv run ruff format .```
-Type-check: ```uv run pyrefly check```
-Test (all): ```uv run pytest```
-Test (single file): ```uv run pytest --capture=no <path>```
+- Auto-fix lint + format: ```uv run ruff check --fix . && uv run ruff format .```
+- Type-check: ```uv run pyrefly check```
+- Test (all): ```uv run pytest```
+- Test (single file): ```uv run pytest --capture=no <path>```
