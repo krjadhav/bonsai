@@ -6,7 +6,7 @@
 - If `main` breaks, fix it immediately or revert immediately if a safe fix is not ready, verify the recovery, and push it.
 - When a branch is justified, keep it short-lived (hours, not days), fast-forward it into `main`, and delete it locally and remotely if pushed.
 - Check status and fetch before integrating remote work. Preserve unrelated user edits; never force-push shared history or commit secrets.
-- Do not update README.md and AGENT.md unless explicitly asked. By default write context to .local/
+- Do not update README.md and AGENT.md unless explicitly asked. By default write context to .local/. Always make sure to delete unecessary context once the problem has been resolved to avoid context pollution.
 
 ## Versioning
 

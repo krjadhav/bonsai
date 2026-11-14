@@ -71,9 +71,9 @@ SERVICE_URL="$(gcloud run services describe "${SERVICE}" \
   --region="${REGION}" --project="${PROJECT}" \
   --format='value(status.url)')"
 CURRENT_ORIGINS="$(gcloud run services describe "${SERVICE}" \
-  --region="${REGION}" --project="${PROJECT}" \
-  --format='value(spec.template.spec.containers[0].env[?(@.name=="ALLOWED_ORIGINS")].value)' \
-  2>/dev/null || true)"
+  --region="${REGION}" --project="${PROJECT}" --format=json 2>/dev/null \
+  | jq -r '.spec.template.spec.containers[0].env[] | select(.name=="ALLOWED_ORIGINS") | .value' 2>/dev/null \
+  || true)"
 echo "   service URL:       ${SERVICE_URL}"
 echo "   current ALLOWED_ORIGINS: ${CURRENT_ORIGINS:-<unset>}"
 

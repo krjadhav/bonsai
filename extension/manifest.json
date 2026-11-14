@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Bonsai — feed filter",
   "short_name": "Bonsai",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Teach your X feed what you want to see. Yes/No your way to a calmer timeline.",
   "action": {
     "default_title": "Bonsai",
@@ -39,14 +39,21 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://x.com/*", "https://twitter.com/*"],
-      "js": ["content.js"],
-      "css": ["content.css"],
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_idle"
     }
   ],
   "oauth2": {
-    "client_id": "1000316385691-8nou638uh23isgsdbginikgjt1bc0qtq.apps.googleusercontent.com",
+    "client_id": "1000316385691-cciusj7cbm5ru7bb2kaaph5d4ih96ouk.apps.googleusercontent.com",
     "scopes": [
       "openid",
       "email",
@@ -55,8 +62,13 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["sidebar.html"],
-      "matches": ["https://x.com/*", "https://twitter.com/*"]
+      "resources": [
+        "sidebar.html"
+      ],
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ]
     }
   ]
 }

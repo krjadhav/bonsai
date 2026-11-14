@@ -32,6 +32,26 @@ html, body {
   padding: 14px 16px 10px;
   border-bottom: 1px solid var(--border);
 }
+.hdr__signout {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.hdr__signout:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--accent);
+}
+.hdr__signout:active { transform: translateY(1px); }
 .logo {
   width: 28px; height: 28px;
   border-radius: 6px;

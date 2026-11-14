@@ -57,6 +57,8 @@
     const onboarded = Boolean(store[ONBOARDED_KEY]);
     const signedIn = Boolean(bonsaiUser && bonsaiUser.email);
 
+    $("headerSignOutBtn").hidden = !signedIn;
+
     if (!signedIn || !bonsaiUser) {
       showSection("signedOut");
       return;
@@ -141,6 +143,7 @@
 
     $("signInBtn").addEventListener("click", signIn);
     $("signOutBtn").addEventListener("click", signOut);
+    $("headerSignOutBtn").addEventListener("click", signOut);
     $("openXBtn").addEventListener("click", openX);
     $("tourNextBtn").addEventListener("click", tourNext);
     $("tourBackBtn").addEventListener("click", tourBack);
