@@ -66,8 +66,8 @@ Read `.agents/skills/chrome-extensions/SKILL.md` before any work on `extension/`
 - Manifest V3 service worker — background work lives in `extension/background.js` (module). No persistent globals; re-hydrate state from `chrome.storage.local` on wake.
 - Storage keys owned by this extension: `bonsaiUser`, `bonsaiCaptures`, `bonsaiConfig`, `bonsaiOnboarded`, `bonsaiCoachSeen`. Reuse these before adding new keys.
 - Content script injects into `article[role="article"]` on x.com/twitter.com. Scope all injected UI with `#bonsai-*` ids and `.bonsai-*` classes — never reuse X's class names or you'll fight their styles.
-- OAuth: dual-flow in `background.js`. Tries `chrome.identity.getAuthToken` first (nicer UX, requires a Chrome-extension OAuth client with matching Item ID and Chrome native sign-in enabled) and falls back to `chrome.identity.launchWebAuthFlow` (works everywhere, requires a Web-application OAuth client with an authorized `https://<extension-id>.chromiumapp.org/` redirect URI). Scopes: `openid email profile`. Never commit the actual OAuth client id into `manifest.json` on `main`.
-- OAuth client setup lives in `OAUTH-SETUP.md` at the repo root, with Path A (Chrome-extension) and Path B (Web application) documented side by side. Both require pinning the extension ID first via `node scripts/pin-extension-id.mjs`, which writes a `extension-key.pem` (gitignored) and prints the `key` field for `manifest.json`. Google provides no CLI or API for creating OAuth clients — do not try to automate this via `gcloud`. Direct users at OAUTH-SETUP.md whenever sign-in fails with `redirect_uri_mismatch`, `invalid_client`, `access blocked`, `turned off browser signin`, or `bad client id`.
+- OAuth: popup opens the Google auth URL directly in a new tab. `background.js` registers `chrome.webRequest.onBeforeRequest` on `https://*.chromiumapp.org/*` — fires BEFORE DNS lookup, so we extract the access token from the URL fragment and close the tab before any error page renders. A `chrome.webNavigation.onBeforeNavigate` listener is kept as a fallback for client-initiated navigations that bypass the webRequest pipeline. Do NOT revert to `chrome.identity.launchWebAuthFlow` — Playwright CDP testing proved it doesn't reliably intercept Google's server-side 302 to chromiumapp.org on current Chrome builds. Scopes: `openid email profile`.
+- OAuth client setup lives in `.local/OAUTH-SETUP.md`. Google provides no CLI or API for creating OAuth clients — do not try to automate this via `gcloud`. The client in `manifest.json` must be a **Web application** type with `https://<extension-id>.chromiumapp.org/` as an authorized redirect URI (trailing slash required). Extension id must be pinned via `node scripts/pin-extension-id.mjs` so the redirect URI doesn't drift across unpacked reloads. Direct users at `.local/OAUTH-SETUP.md` whenever sign-in fails with `redirect_uri_mismatch`, `invalid_client`, `access blocked`, or `bad client id`.
 - Side panel (`sidebar.html`) is opened via `chrome.sidePanel.open({ windowId })` from a user gesture only; MV3 rejects async-opened panels.
 - Verification: run the preflight check below, then use the browser workflow for extension behavior changes.
 
@@ -101,6 +101,29 @@ Configure [Chrome DevTools MCP](https://github.com/ChromeDevTools/chrome-devtool
 Enable remote debugging at `chrome://inspect/#remote-debugging`, restart the agent after configuration changes, and have the browser user accept Chrome's connection prompt for each new browser session. Confirm extension tools are available; installing a DevTools skill alone does not configure the MCP server.
 
 Load the unpacked `extension/`, reload it after changes, trigger the affected actions, and inspect the relevant popup, side panel, content script, and service worker. Check console errors and relevant network failures, including persistence after worker restart. If automation is unavailable, load unpacked via `chrome://extensions` with Developer mode enabled and inspect manually (`Inspect views → service worker`). Report which flows were verified and any browser checks still outstanding; static checks alone do not verify extension behavior.
+
+#### Playwright CDP attach (live user profile)
+
+For flows that need a real Google account, real cookies, or the user's exact browser (not the puppeteer-bundled Chromium), attach to their running Chrome/Comet via CDP. `scripts/test-auth-flow.mjs` is the reference implementation — it attaches via `chromium.connectOverCDP("http://localhost:9222")`, finds the Bonsai MV3 service worker (playwright surfaces service workers out of the box; puppeteer's `targets()` does not), captures SW `console.*` output into a polled in-worker buffer (playwright has no SW console event and `newCDPSession` doesn't accept workers), and instruments `webNavigation` / `tabs` / `storage` listeners before triggering the flow. Every event is timestamped and printed so the failure window is obvious.
+
+Prerequisite: the user quits their browser and relaunches with `--remote-debugging-port=9222`:
+
+```sh
+pkill -f "Comet.app/Contents/MacOS/Comet"   # or Chrome, Brave, Arc …
+open -a Comet --args --remote-debugging-port=9222
+```
+
+Confirm port is open: `curl -s http://localhost:9222/json/version`.
+
+Then from the agent:
+
+```sh
+node scripts/test-auth-flow.mjs
+```
+
+The script opens the OAuth URL in a new tab and gives the user 90s to complete consent. Every `webNavigation.onBeforeNavigate`, `onCommitted`, `onErrorOccurred`, `tabs.onCreated`, `tabs.onRemoved`, and `storage.onChanged` event is logged with the exact URL. This is how the v0.7.2 `webRequest` fix was identified — the trace showed Google's 302 redirect did not fire `onBeforeNavigate` for the chromiumapp.org URL, only `onErrorOccurred` after DNS failed.
+
+Reuse this pattern for any extension bug that can't be reproduced in headless puppeteer. Do NOT run the script against a profile the user cares about without warning them — it opens real tabs and consumes real credentials.
 
 #### Chrome Web Store metadata
 
