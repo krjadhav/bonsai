@@ -120,6 +120,14 @@ node .agents/skills/security-audit/validate-findings.cjs <audit-dir>/findings.js
 - Before committing, run `git diff --check`. Documentation-only work needs an instructions/links review, not an application rebuild.
 - Report changes, checks, commit/push results, and remaining limitations accurately.
 
+### Playwright browser attach (required for browser-rendered flows)
+
+Any feature that depends on browser-rendered behavior — auth, content-script injection, popup/page UI, service-worker lifecycle — needs a Playwright-based check in addition to static gates. Static lint / typecheck / headless-load do not catch runtime browser-bound bugs (e.g. server-side 302s that bypass `webNavigation.onBeforeNavigate`, popups that close on blur mid-flow, MV3 service-worker eviction during long callbacks).
+
+- **Baseline**: a headless Playwright/puppeteer check that launches the project's extension (or app) via `--load-extension` and asserts no console errors across the relevant surfaces. This is a required gate, wired into `npm run check` where the project allows it.
+- **Live-profile attach**: for flows that need a real Google account, real cookies, or the user's exact browser (Comet, Brave, enterprise Chrome), attach via `chromium.connectOverCDP("http://localhost:9222")` after relaunching the browser with `--remote-debugging-port=9222`. Playwright surfaces MV3 service workers natively through `context.serviceWorkers()`; puppeteer's default `targets()` does not. Capture SW console output by monkey-patching `console.*` into an in-worker buffer and polling it (Playwright has no SW console event, and `newCDPSession` rejects worker targets).
+- Project-specific harnesses (per-feature setups, auth helpers, custom instrumentation) belong in `scripts/` or `.local/` depending on whether they ship to collaborators. Agents are expected to add new harnesses as new browser-rendered features land, not to leave verification to future humans.
+
 
 # For Backend in Python
 Commands
