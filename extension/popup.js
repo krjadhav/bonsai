@@ -11,7 +11,6 @@
   };
 
   const ONBOARDED_KEY = "bonsaiOnboarded";
-  const COACH_KEY = "bonsaiCoachSeen";
 
   /** @type {{ title: string, body: string }[]} */
   const TOUR_STEPS = [
@@ -159,8 +158,11 @@
   }
 
   async function signOut() {
+    // Service worker clears all storage + revokes the token. No need to
+    // double-clear here — leaving the second remove() in creates a race
+    // where the SW's clear() lands after this remove() and silently wipes
+    // whatever the user did in between.
     await chrome.runtime.sendMessage({ type: "bonsai:signOut" });
-    await chrome.storage.local.remove(["bonsaiUser", ONBOARDED_KEY, COACH_KEY]);
     refreshUI();
   }
 

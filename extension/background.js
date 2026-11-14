@@ -190,7 +190,11 @@ async function signOut() {
       console.warn("removeCachedAuthToken failed", e);
     }
   }
-  await chrome.storage.local.remove(USER_KEY);
+  // Wipe everything — user key, captures, config overrides, onboarding flags.
+  // Sign-out is a clean-slate action; leaving captures behind leaks history
+  // across accounts on the same install and confuses the sidebar when the
+  // next user signs in.
+  await chrome.storage.local.clear();
   return { ok: true };
 }
 

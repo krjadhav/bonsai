@@ -63,17 +63,18 @@ print(f"   deleted {len(matches)} docs")
 PY
 cd - >/dev/null
 
-printf '\n==> Backend done. Clear the extension local state next:\n'
+printf '\n==> Backend done. Clear the extension local state:\n'
 cat <<'SNIPPET'
 
-   1. Open chrome://extensions
-   2. Click "service worker" under Bonsai to open DevTools
-   3. Paste into the console:
+   Option 1 — popup (one click):
+     Open the Bonsai popup and click "Sign out" in the header.
+     That revokes the Google token AND wipes chrome.storage.local
+     wholesale (user, captures, config, onboarded, coach).
 
-      chrome.runtime.sendMessage({ type: "bonsai:resetAll" }, (r) => console.log(r))
+   Option 2 — service-worker console (no popup needed):
+     chrome://extensions → Bonsai → "service worker" → DevTools console:
+         chrome.runtime.sendMessage({ type: "bonsai:resetAll" }, (r) => console.log(r))
+     Expected response: { ok: true }
 
-   Expected response:  { ok: true }
-
-   That clears bonsaiUser, bonsaiCaptures, bonsaiConfig, bonsaiOnboarded,
-   bonsaiCoachSeen — everything in chrome.storage.local for this extension.
+   Both wipe the same keys. Option 1 also revokes the Google token.
 SNIPPET
