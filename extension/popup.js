@@ -79,29 +79,19 @@
   }
 
   /**
-   * Open the OAuth flow in a detached chrome.windows.create() popup window
-   * rather than running it inline. The extension action popup closes on
-   * blur the instant launchWebAuthFlow opens its own auth window, which
-   * orphans the pending promise and leaves Google's redirect to
-   * chromiumapp.org uncaught (DNS_PROBE_FINISHED_NXDOMAIN). A detached
-   * window does NOT close on blur, so the launchWebAuthFlow promise stays
-   * alive for the whole round-trip and Chrome's identity API reliably
-   * claims the redirect.
+   * Open the OAuth flow in a regular tab via chrome.tabs.create. The
+   * extension action popup closes on blur the instant launchWebAuthFlow
+   * opens its own auth window — a tab does NOT close on blur, so the
+   * launchWebAuthFlow promise in oauth.js stays alive for the whole
+   * round-trip and Chrome's identity API reliably claims the redirect.
+   * oauth.js closes the tab itself once it has handed the token to the
+   * service worker, so the user lands back on their previous tab.
    */
   async function signIn() {
     const btn = /** @type {HTMLButtonElement} */ ($("signInBtn"));
     btn.disabled = true;
     try {
-      await chrome.windows.create({
-        url: chrome.runtime.getURL("oauth.html"),
-        type: "popup",
-        width: 420,
-        height: 520,
-      });
-      // Close the extension action popup so focus goes to the detached
-      // auth window. The detached window drives the rest of the flow and
-      // closes itself when done. The next popup open will see the stored
-      // bonsaiUser via refreshUI.
+      await chrome.tabs.create({ url: chrome.runtime.getURL("oauth.html") });
       window.close();
     } catch (e) {
       const msg = /** @type {Error} */ (e)?.message || String(e);

@@ -21,6 +21,23 @@
     $("statusLead").textContent = msg;
   }
 
+  // Close whatever surface hosts this page. Works both when opened via
+  // chrome.tabs.create (regular tab — window.close is a no-op, need
+  // chrome.tabs.remove) and chrome.windows.create (detached popup —
+  // chrome.tabs.remove still works).
+  async function closeSelf() {
+    try {
+      const tab = await chrome.tabs.getCurrent();
+      if (tab?.id !== undefined) {
+        await chrome.tabs.remove(tab.id);
+        return;
+      }
+    } catch (e) {
+      console.warn("chrome.tabs.remove failed", e);
+    }
+    window.close();
+  }
+
   /** @param {string} msg */
   function showError(msg) {
     $("statusLead").textContent = "Sign-in failed";
@@ -78,7 +95,7 @@
         return;
       }
       setStatus("Signed in. Closing…");
-      window.close();
+      closeSelf();
     } catch (e) {
       const msg = /** @type {Error} */ (e)?.message || String(e);
       showError(
