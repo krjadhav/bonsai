@@ -6,7 +6,7 @@
 - If `main` breaks, fix it immediately or revert immediately if a safe fix is not ready, verify the recovery, and push it.
 - When a branch is justified, keep it short-lived (hours, not days), fast-forward it into `main`, and delete it locally and remotely if pushed.
 - Check status and fetch before integrating remote work. Preserve unrelated user edits; never force-push shared history or commit secrets.
-- Do not update README.md unless explicitly asked.
+- Do not update README.md and AGENT.md unless explicitly asked. By default write context to .local/
 
 ## Versioning
 
@@ -136,46 +136,3 @@ Auto-fix lint + format: ```uv run ruff check --fix . && uv run ruff format .```
 Type-check: ```uv run pyrefly check```
 Test (all): ```uv run pytest```
 Test (single file): ```uv run pytest --capture=no <path>```
-
-### Google Cloud (Cloud Run + Firestore)
-
-[Upstream skill](https://github.com/google/skills/tree/main/skills/gcloud) · [Local skill](.agents/skills/gcloud/SKILL.md)
-
-Read `.agents/skills/gcloud/SKILL.md` before any `gcloud` work — it imposes a mandatory pre-condition: validate leaf-level syntax with `gcloud help <command>` or `gcloud topic …` before proposing flags, running commands, or writing step-by-step plans. Pre-existing knowledge of `gcloud` flags is treated as stale.
-
-If missing: `npx skills add google/skills --skill gcloud --yes`.
-
-Project context:
-
-- Project id: `bonsai-feed-filter`. Region: `asia-south1`. Service: `bonsai-api` on Cloud Run. Datastore: Firestore native, collection `bonsai_posts`.
-- The runtime service account is the Compute Engine default SA, granted `roles/datastore.user`. End-user auth is enforced inside FastAPI by verifying Google OAuth bearer tokens; Cloud Run invoker IAM is intentionally `--allow-unauthenticated`.
-- Firestore free tier (50k reads / 20k writes per day) is the cost ceiling. Writes are merge-upsert, doc id `{user_sub}_{post_id}` — deliberate so dedup is structural, not query-based.
-
-Routine commands (always scope `--project=bonsai-feed-filter` and append `--quiet` for non-interactive runs; follow the skill's help-first rule):
-
-```sh
-# Local ADC for `uv run` against real Firestore
-gcloud auth application-default login
-gcloud auth application-default set-quota-project bonsai-feed-filter
-
-# Deploy from source (Cloud Build picks up backend/Dockerfile)
-cd backend && gcloud run deploy bonsai-api \
-  --source=. --region=asia-south1 --project=bonsai-feed-filter \
-  --allow-unauthenticated --min-instances=0 --max-instances=5 \
-  --cpu=1 --memory=512Mi --timeout=30 \
-  --set-env-vars="GCP_PROJECT_ID=bonsai-feed-filter,FIRESTORE_COLLECTION=bonsai_posts,GOOGLE_OAUTH_CLIENT_ID=REPLACE_ME.apps.googleusercontent.com,ALLOWED_ORIGINS=chrome-extension://REPLACE_WITH_EXTENSION_ID" \
-  --quiet
-
-# Rotate env config without redeploy
-gcloud run services update bonsai-api --region=asia-south1 \
-  --project=bonsai-feed-filter \
-  --update-env-vars="ALLOWED_ORIGINS=chrome-extension://NEW_ID" --quiet
-
-# Tail recent logs for a given service
-gcloud run services logs read bonsai-api --region=asia-south1 \
-  --project=bonsai-feed-filter --limit=100
-```
-
-Full one-time setup (APIs enable, Firestore create, Artifact Registry, IAM) lives in `backend/README.md`. Prefer that doc over free-form commands; update it when infra conventions change.
-
-For routine extension-id ↔ backend wiring, use `scripts/gcloud-setup.sh`. It is verify-only: it refuses to create APIs, SAs, Firestore databases, Artifact Registry repos, or Cloud Run services, and only mutates the existing service's `ALLOWED_ORIGINS` (and optionally `GOOGLE_OAUTH_CLIENT_ID`). Call as `./scripts/gcloud-setup.sh <extension-id> [oauth-client-id]`. Do not add create/deploy steps to this script — redeploys belong in `backend/README.md`.

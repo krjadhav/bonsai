@@ -20,6 +20,7 @@ venv/
 .bonsai-notes.md
 NOTES.local.md
 *.local.md
+.local/
 
 # Secret
 *secret*
