@@ -262,6 +262,27 @@ async function syncAll() {
 // ---------------------------------------------------------------------------
 // Message routing
 // ---------------------------------------------------------------------------
+/**
+ * Store a user object derived from an OAuth access token.
+ * Used by the popup after it runs launchWebAuthFlow in its own context
+ * (keeps the user gesture + prevents SW eviction from orphaning the flow).
+ * @param {string} token
+ */
+async function completeSignIn(token) {
+  if (!token) throw new Error("completeSignIn: missing token");
+  const info = await fetchUserInfo(token);
+  /** @type {BonsaiUser} */
+  const user = {
+    email: info.email,
+    name: info.name,
+    picture: info.picture,
+    sub: info.sub,
+    token,
+  };
+  await chrome.storage.local.set({ [USER_KEY]: user });
+  return user;
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     try {
@@ -269,8 +290,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         case "bonsai:signIn":
           sendResponse(await signIn());
           break;
+        case "bonsai:completeSignIn":
+          sendResponse(await completeSignIn(msg.token));
+          break;
         case "bonsai:signOut":
           sendResponse(await signOut());
+          break;
+        case "bonsai:resetAll":
+          await chrome.storage.local.clear();
+          sendResponse({ ok: true });
           break;
         case "bonsai:decision":
           sendResponse(await trySendCapture(msg.payload));
@@ -289,8 +317,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           sendResponse({ error: "unknown message type" });
       }
     } catch (e) {
-      const msg = /** @type {Error} */ (e)?.message || String(e);
-      sendResponse({ error: msg });
+      const errMsg = /** @type {Error} */ (e)?.message || String(e);
+      sendResponse({ error: errMsg });
     }
   })();
   return true; // keep channel open for async sendResponse
