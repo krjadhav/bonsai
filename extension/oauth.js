@@ -1,9 +1,18 @@
 // @ts-check
-// Detached OAuth window. Runs launchWebAuthFlow from a chrome.windows.create
-// popup that does NOT close on blur — unlike the extension action popup,
-// which closes the instant the auth tab steals focus and orphans the
-// launchWebAuthFlow promise, leaving the chromiumapp.org redirect
-// uncaught (DNS_PROBE_FINISHED_NXDOMAIN).
+// Manual OAuth flow — chrome.identity.launchWebAuthFlow is unreliable on
+// some Chrome builds: Google's redirect to chromiumapp.org isn't claimed
+// and the tab errors out with DNS_PROBE_FINISHED_NXDOMAIN. Instead:
+//
+//   1. Open the Google auth URL in a child tab (chrome.tabs.create).
+//   2. Watch that tab via chrome.tabs.onUpdated for a navigation to
+//      <extension-id>.chromiumapp.org — which fires BEFORE DNS lookup.
+//   3. Extract the access_token from the URL fragment, close the child
+//      tab (before Chrome gets a chance to render the "site can't be
+//      reached" error), hand the token to the service worker, close
+//      this host tab.
+//
+// This bypasses chrome.identity entirely and only relies on chrome.tabs,
+// which is rock-solid in MV3.
 
 (() => {
   /**
@@ -21,10 +30,15 @@
     $("statusLead").textContent = msg;
   }
 
-  // Close whatever surface hosts this page. Works both when opened via
-  // chrome.tabs.create (regular tab — window.close is a no-op, need
-  // chrome.tabs.remove) and chrome.windows.create (detached popup —
-  // chrome.tabs.remove still works).
+  /** @param {string} msg */
+  function showError(msg) {
+    $("statusLead").textContent = "Sign-in failed";
+    const detail = $("statusDetail");
+    detail.textContent = msg;
+    detail.hidden = false;
+    $("closeBtn").hidden = false;
+  }
+
   async function closeSelf() {
     try {
       const tab = await chrome.tabs.getCurrent();
@@ -38,13 +52,38 @@
     window.close();
   }
 
-  /** @param {string} msg */
-  function showError(msg) {
-    $("statusLead").textContent = "Sign-in failed";
-    const detail = $("statusDetail");
-    detail.textContent = msg;
-    detail.hidden = false;
-    $("closeBtn").hidden = false;
+  /**
+   * Watch a tab until its URL starts with the redirect prefix, then
+   * extract and return the full redirect URL. Rejects if the tab is
+   * closed before the redirect arrives.
+   * @param {number} tabId
+   * @param {string} redirectPrefix
+   * @returns {Promise<string>}
+   */
+  function waitForRedirect(tabId, redirectPrefix) {
+    return new Promise((resolve, reject) => {
+      /** @type {(id: number, info: { url?: string }) => void} */
+      const onUpdated = (updatedTabId, changeInfo) => {
+        if (updatedTabId !== tabId) return;
+        const url = changeInfo.url;
+        if (typeof url === "string" && url.startsWith(redirectPrefix)) {
+          chrome.tabs.onUpdated.removeListener(onUpdated);
+          chrome.tabs.onRemoved.removeListener(onRemoved);
+          // Remove immediately so Chrome never renders the DNS error page.
+          chrome.tabs.remove(tabId).catch(() => {});
+          resolve(url);
+        }
+      };
+      /** @type {(id: number) => void} */
+      const onRemoved = (removedTabId) => {
+        if (removedTabId !== tabId) return;
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+        chrome.tabs.onRemoved.removeListener(onRemoved);
+        reject(new Error("Sign-in tab was closed before completing"));
+      };
+      chrome.tabs.onUpdated.addListener(onUpdated);
+      chrome.tabs.onRemoved.addListener(onRemoved);
+    });
   }
 
   async function runFlow() {
@@ -68,16 +107,20 @@
     authUrl.searchParams.set("prompt", "consent");
 
     try {
-      setStatus("Waiting for Google consent…");
-      const redirectResponse = await chrome.identity.launchWebAuthFlow({
+      setStatus("Opening Google sign-in…");
+      const authTab = await chrome.tabs.create({
         url: authUrl.toString(),
-        interactive: true,
+        active: true,
       });
-      if (!redirectResponse) {
-        showError("launchWebAuthFlow returned no URL");
+      if (authTab.id === undefined) {
+        showError("chrome.tabs.create returned no tab id");
         return;
       }
-      const hash = redirectResponse.split("#")[1] || "";
+
+      setStatus("Waiting for Google consent…");
+      const redirectUrl = await waitForRedirect(authTab.id, redirectUri);
+
+      const hash = redirectUrl.split("#")[1] || "";
       const params = new URLSearchParams(hash);
       const token = params.get("access_token");
       if (!token) {
@@ -85,6 +128,7 @@
         showError(err);
         return;
       }
+
       setStatus("Signing you in…");
       const resp = await chrome.runtime.sendMessage({
         type: "bonsai:completeSignIn",
@@ -101,14 +145,14 @@
       showError(
         msg +
           `\n\nExtension id:  ${chrome.runtime.id}` +
-          `\nRedirect URI:  ${chrome.identity.getRedirectURL()}` +
+          `\nRedirect URI:  ${redirectUri}` +
           `\n\nAuthorized redirect URI in Cloud Console must equal the line above.`,
       );
     }
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    $("closeBtn").addEventListener("click", () => window.close());
+    $("closeBtn").addEventListener("click", closeSelf);
     runFlow();
   });
 })();
