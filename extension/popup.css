@@ -32,6 +32,7 @@ html, body {
   padding: 14px 16px 10px;
   border-bottom: 1px solid var(--border);
 }
+.hdr__signout[hidden] { display: none; }
 .hdr__signout {
   margin-left: auto;
   display: inline-flex;
