@@ -79,81 +79,34 @@
   }
 
   /**
-   * Launch the OAuth consent flow from the POPUP, not the service worker.
-   * MV3 service workers can be evicted between calling launchWebAuthFlow and
-   * Google's redirect arriving, which orphans the callback and leaves the
-   * browser trying to navigate to the chromiumapp.org URL as a real site
-   * (DNS_PROBE_FINISHED_NXDOMAIN). The popup is a short-lived page but it
-   * stays open for the full duration of launchWebAuthFlow, and the user
-   * gesture context from the click is preserved — Chrome's identity API
-   * then reliably intercepts the redirect.
+   * Open the OAuth flow in a detached chrome.windows.create() popup window
+   * rather than running it inline. The extension action popup closes on
+   * blur the instant launchWebAuthFlow opens its own auth window, which
+   * orphans the pending promise and leaves Google's redirect to
+   * chromiumapp.org uncaught (DNS_PROBE_FINISHED_NXDOMAIN). A detached
+   * window does NOT close on blur, so the launchWebAuthFlow promise stays
+   * alive for the whole round-trip and Chrome's identity API reliably
+   * claims the redirect.
    */
-  async function launchWebFlowFromPopup() {
-    const manifest = chrome.runtime.getManifest();
-    const clientId = manifest.oauth2?.client_id;
-    if (!clientId || clientId.startsWith("REPLACE_")) {
-      throw new Error("oauth2.client_id missing or placeholder in manifest.json");
-    }
-    const scopes = (manifest.oauth2?.scopes || ["openid", "email", "profile"]).join(" ");
-    const redirectUri = chrome.identity.getRedirectURL();
-
-    const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-    authUrl.searchParams.set("client_id", clientId);
-    authUrl.searchParams.set("response_type", "token");
-    authUrl.searchParams.set("redirect_uri", redirectUri);
-    authUrl.searchParams.set("scope", scopes);
-    authUrl.searchParams.set("include_granted_scopes", "true");
-    authUrl.searchParams.set("prompt", "consent");
-
-    const redirectResponse = await chrome.identity.launchWebAuthFlow({
-      url: authUrl.toString(),
-      interactive: true,
-    });
-    if (!redirectResponse) {
-      throw new Error("launchWebAuthFlow returned no URL");
-    }
-    const hash = redirectResponse.split("#")[1] || "";
-    const params = new URLSearchParams(hash);
-    const token = params.get("access_token");
-    if (!token) {
-      const err = params.get("error") || "missing access_token in redirect";
-      throw new Error(err);
-    }
-    return token;
-  }
-
   async function signIn() {
     const btn = /** @type {HTMLButtonElement} */ ($("signInBtn"));
     btn.disabled = true;
     try {
-      const token = await launchWebFlowFromPopup();
-      const resp = await chrome.runtime.sendMessage({
-        type: "bonsai:completeSignIn",
-        token,
+      await chrome.windows.create({
+        url: chrome.runtime.getURL("oauth.html"),
+        type: "popup",
+        width: 420,
+        height: 520,
       });
-      if (!resp || resp.error) {
-        throw new Error(resp?.error || "completeSignIn returned no user");
-      }
+      // Close the extension action popup so focus goes to the detached
+      // auth window. The detached window drives the rest of the flow and
+      // closes itself when done. The next popup open will see the stored
+      // bonsaiUser via refreshUI.
+      window.close();
     } catch (e) {
       const msg = /** @type {Error} */ (e)?.message || String(e);
-      const looksLikeConfig =
-        /redirect_uri|invalid_client|Authorization page|invalid request|turned off browser signin|bad client id|OAuth2|access blocked/i.test(
-          msg,
-        );
-      let hint = "";
-      if (looksLikeConfig) {
-        const redirectUri = chrome.identity.getRedirectURL();
-        const extId = chrome.runtime.id;
-        hint =
-          `\n\nExtension id:  ${extId}` +
-          `\nRedirect URI:  ${redirectUri}` +
-          `\n\nIn Google Cloud Console (project bonsai-feed-filter), the OAuth client's Authorized redirect URI must equal:\n${redirectUri}` +
-          `\n\nFull walkthrough: OAUTH-SETUP.md.`;
-      }
-      alert("Sign-in failed: " + msg + hint);
-    } finally {
+      alert("Could not start sign-in: " + msg);
       btn.disabled = false;
-      refreshUI();
     }
   }
 
