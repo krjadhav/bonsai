@@ -266,10 +266,48 @@ async function syncAll() {
 // ---------------------------------------------------------------------------
 // Message routing
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Manual OAuth redirect interception.
+//
+// chrome.identity.launchWebAuthFlow has been unreliable in our target Chrome
+// builds — Google's redirect to <ext-id>.chromiumapp.org lands in the tab
+// but Chrome identity fails to claim it, so the browser attempts a real DNS
+// lookup and renders DNS_PROBE_FINISHED_NXDOMAIN. We bypass launchWebAuthFlow
+// entirely: a webNavigation.onBeforeNavigate listener registered at SW
+// startup fires BEFORE any network activity, so we can pull the token out
+// of the URL fragment and close the tab without the error page ever
+// rendering.
+//
+// The listener filter is pinned to the exact redirect URI (which includes
+// the extension id), so it only ever fires on our own flow — zero
+// interference with other tabs.
+// ---------------------------------------------------------------------------
+const OAUTH_REDIRECT_URI = chrome.identity.getRedirectURL();
+
+chrome.webNavigation.onBeforeNavigate.addListener(
+  (details) => {
+    if (details.frameId !== 0) return; // only top-frame navigations
+    const url = details.url;
+    if (!url.startsWith(OAUTH_REDIRECT_URI)) return;
+    const hash = url.split("#")[1] || "";
+    const params = new URLSearchParams(hash);
+    const token = params.get("access_token");
+    const err = params.get("error");
+    // Fire-and-forget: close tab immediately, store user asynchronously.
+    chrome.tabs.remove(details.tabId).catch(() => {});
+    if (err || !token) {
+      console.warn("OAuth redirect without token:", err || "no access_token");
+      return;
+    }
+    completeSignIn(token).catch((e) => console.error("completeSignIn failed", e));
+  },
+  { url: [{ urlPrefix: OAUTH_REDIRECT_URI }] },
+);
+
 /**
  * Store a user object derived from an OAuth access token.
- * Used by the popup after it runs launchWebAuthFlow in its own context
- * (keeps the user gesture + prevents SW eviction from orphaning the flow).
+ * Invoked either by the popup/oauth tab after an interactive flow, or
+ * directly by the webNavigation redirect listener above.
  * @param {string} token
  */
 async function completeSignIn(token) {

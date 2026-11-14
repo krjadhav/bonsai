@@ -79,19 +79,32 @@
   }
 
   /**
-   * Open the OAuth flow in a regular tab via chrome.tabs.create. The
-   * extension action popup closes on blur the instant launchWebAuthFlow
-   * opens its own auth window — a tab does NOT close on blur, so the
-   * launchWebAuthFlow promise in oauth.js stays alive for the whole
-   * round-trip and Chrome's identity API reliably claims the redirect.
-   * oauth.js closes the tab itself once it has handed the token to the
-   * service worker, so the user lands back on their previous tab.
+   * Open Google's OAuth consent URL in a new tab. The service worker's
+   * chrome.webNavigation.onBeforeNavigate listener catches the redirect
+   * to <ext-id>.chromiumapp.org before DNS fires, extracts the access
+   * token from the URL fragment, closes the tab, and stores the user.
+   * No launchWebAuthFlow, no intermediate oauth.html — the simplest
+   * path that actually works.
    */
   async function signIn() {
     const btn = /** @type {HTMLButtonElement} */ ($("signInBtn"));
     btn.disabled = true;
     try {
-      await chrome.tabs.create({ url: chrome.runtime.getURL("oauth.html") });
+      const manifest = chrome.runtime.getManifest();
+      const clientId = manifest.oauth2?.client_id;
+      if (!clientId || clientId.startsWith("REPLACE_")) {
+        throw new Error("oauth2.client_id missing or placeholder in manifest.json");
+      }
+      const scopes = (manifest.oauth2?.scopes || ["openid", "email", "profile"]).join(" ");
+      const redirectUri = chrome.identity.getRedirectURL();
+      const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+      authUrl.searchParams.set("client_id", clientId);
+      authUrl.searchParams.set("response_type", "token");
+      authUrl.searchParams.set("redirect_uri", redirectUri);
+      authUrl.searchParams.set("scope", scopes);
+      authUrl.searchParams.set("include_granted_scopes", "true");
+      authUrl.searchParams.set("prompt", "consent");
+      await chrome.tabs.create({ url: authUrl.toString() });
       window.close();
     } catch (e) {
       const msg = /** @type {Error} */ (e)?.message || String(e);

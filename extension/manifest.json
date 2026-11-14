@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Bonsai — feed filter",
   "short_name": "Bonsai",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Teach your X feed what you want to see. Yes/No your way to a calmer timeline.",
   "action": {
     "default_title": "Bonsai",
@@ -28,7 +28,8 @@
     "storage",
     "sidePanel",
     "activeTab",
-    "tabs"
+    "tabs",
+    "webNavigation"
   ],
   "host_permissions": [
     "https://x.com/*",
