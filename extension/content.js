@@ -16,11 +16,16 @@
   const ONBOARDED_KEY = "bonsaiOnboarded";
   const COACH_KEY = "bonsaiCoachSeen";
   const MAX_LOCAL = 500;
+  // Target per side the model needs before it has useful signal. Shown as the
+  // denominator on the progress bars; once both sides hit it the UI auto-hides.
+  const PROGRESS_TARGET = 50;
 
   /** @type {Set<string>} */
   const seenThisSession = new Set();
   /** @type {HTMLElement | null} */
   let coachEl = null;
+  /** @type {HTMLElement | null} */
+  let progressEl = null;
 
   // --------------------------------------------------------------------------
   // Extract tweet payload from an <article> node
@@ -298,6 +303,78 @@
   }
 
   // --------------------------------------------------------------------------
+  // Progress hover-bar — shows rated-yes and rated-no counts toward the
+  // PROGRESS_TARGET milestone so the user knows how much teaching signal is
+  // left before Bonsai has enough to learn from. Hidden once both sides are
+  // satisfied; nothing to nag the user about after that.
+  // --------------------------------------------------------------------------
+  function mountProgress() {
+    if (progressEl || document.getElementById("bonsai-progress")) return;
+    const el = document.createElement("div");
+    el.id = "bonsai-progress";
+    el.className = "bonsai-progress";
+    el.innerHTML = `
+      <div class="bonsai-progress__title">Teaching Bonsai</div>
+      <div class="bonsai-progress__row" data-kind="yes">
+        <span class="bonsai-progress__label">
+          <svg class="bonsai-ico" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73V10z"/></svg>
+          <span>More like this</span>
+        </span>
+        <span class="bonsai-progress__count" id="bonsai-progress-yes-count">0 / ${PROGRESS_TARGET}</span>
+        <div class="bonsai-progress__bar"><div class="bonsai-progress__fill" id="bonsai-progress-yes-fill"></div></div>
+      </div>
+      <div class="bonsai-progress__row" data-kind="no">
+        <span class="bonsai-progress__label">
+          <svg class="bonsai-ico bonsai-ico--flip" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73V10z"/></svg>
+          <span>Less like this</span>
+        </span>
+        <span class="bonsai-progress__count" id="bonsai-progress-no-count">0 / ${PROGRESS_TARGET}</span>
+        <div class="bonsai-progress__bar"><div class="bonsai-progress__fill" id="bonsai-progress-no-fill"></div></div>
+      </div>
+      <div class="bonsai-progress__done" id="bonsai-progress-done" hidden>
+        Bonsai has enough examples to start learning.
+      </div>
+    `;
+    document.body.appendChild(el);
+    progressEl = el;
+  }
+
+  /** @param {BonsaiCapture[]} captures */
+  function paintProgress(captures) {
+    if (!progressEl) return;
+    let yes = 0;
+    let no = 0;
+    for (const c of captures) {
+      if (c.decision === "yes") yes++;
+      else if (c.decision === "no") no++;
+    }
+    const yesCapped = Math.min(yes, PROGRESS_TARGET);
+    const noCapped = Math.min(no, PROGRESS_TARGET);
+    const yesPct = (yesCapped / PROGRESS_TARGET) * 100;
+    const noPct = (noCapped / PROGRESS_TARGET) * 100;
+
+    const yesCount = document.getElementById("bonsai-progress-yes-count");
+    const noCount = document.getElementById("bonsai-progress-no-count");
+    const yesFill = document.getElementById("bonsai-progress-yes-fill");
+    const noFill = document.getElementById("bonsai-progress-no-fill");
+    const done = document.getElementById("bonsai-progress-done");
+    if (yesCount) yesCount.textContent = `${yesCapped} / ${PROGRESS_TARGET}`;
+    if (noCount) noCount.textContent = `${noCapped} / ${PROGRESS_TARGET}`;
+    if (yesFill) yesFill.style.width = yesPct + "%";
+    if (noFill) noFill.style.width = noPct + "%";
+
+    const complete = yes >= PROGRESS_TARGET && no >= PROGRESS_TARGET;
+    progressEl.classList.toggle("is-complete", complete);
+    if (done) done.hidden = !complete;
+  }
+
+  async function refreshProgress() {
+    const { [STORAGE_KEY]: raw } = await chrome.storage.local.get(STORAGE_KEY);
+    const captures = /** @type {BonsaiCapture[]} */ (raw || []);
+    paintProgress(captures);
+  }
+
+  // --------------------------------------------------------------------------
   // Observer wiring — X virtualizes the timeline aggressively
   // --------------------------------------------------------------------------
   /** @param {Document | HTMLElement} root */
@@ -324,6 +401,17 @@
   function boot() {
     scan(document);
     observer.observe(document.body, { childList: true, subtree: true });
+    mountProgress();
+    refreshProgress();
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== "local") return;
+      if (changes[STORAGE_KEY]) {
+        const next = /** @type {BonsaiCapture[] | undefined} */ (
+          changes[STORAGE_KEY].newValue
+        );
+        paintProgress(next || []);
+      }
+    });
     maybeShowCoach();
   }
 

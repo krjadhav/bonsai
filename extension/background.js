@@ -25,13 +25,23 @@ async function getConfig() {
 }
 
 // ---------------------------------------------------------------------------
-// Side panel: allow clicking the toolbar icon to open the sidebar.
+// Install hooks:
+//   * Side panel default: toolbar click opens the popup, not the sidebar.
+//   * Fresh install only: open the onboarding tab. Users rarely pin the
+//     extension, so we cannot rely on the popup for first-run setup.
 // ---------------------------------------------------------------------------
-chrome.runtime.onInstalled.addListener(async () => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   try {
     await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
   } catch (e) {
     console.warn("sidePanel.setPanelBehavior failed", e);
+  }
+  if (details.reason === "install") {
+    try {
+      await chrome.tabs.create({ url: chrome.runtime.getURL("onboarding.html") });
+    } catch (e) {
+      console.warn("open onboarding tab failed", e);
+    }
   }
 });
 

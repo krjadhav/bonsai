@@ -107,6 +107,15 @@ async function main() {
         });
         await new Promise((r) => setTimeout(r, 500));
         await sidebar.close();
+
+        const onboarding = await browser.newPage();
+        wire(onboarding, "onboarding");
+        await onboarding.goto(`chrome-extension://${extensionId}/onboarding.html`, {
+          waitUntil: "load",
+          timeout: 10_000,
+        });
+        await new Promise((r) => setTimeout(r, 500));
+        await onboarding.close();
       }
     }
   } finally {
@@ -117,7 +126,7 @@ async function main() {
     console.error(`\nChromium load smoke test: ${failures.length} error(s). See above.\n`);
     process.exit(1);
   }
-  console.log("Chromium load smoke test OK — service worker + popup + sidebar loaded cleanly.");
+  console.log("Chromium load smoke test OK — service worker + popup + sidebar + onboarding loaded cleanly.");
 }
 
 main().catch((e) => {
