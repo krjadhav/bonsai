@@ -114,6 +114,7 @@ html, body {
 .btn.ghost { background: transparent; border-color: var(--border); }
 .btn.ghost:hover { background: var(--surface); }
 .btn[disabled] { opacity: 0.6; cursor: default; }
+.btn[hidden] { display: none; }
 
 .foot {
   text-align: center;
@@ -126,35 +127,40 @@ html, body {
 /* ---------- Tour stage (larger than popup) ---------- */
 .stage {
   position: relative;
-  height: 340px;
+  min-height: 280px;
   background: linear-gradient(180deg, #0f1612 0%, #141c16 100%);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   overflow: hidden;
   margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  place-items: center;
 }
 
 .scene {
-  position: absolute;
-  inset: 20px;
+  grid-area: 1 / 1;
+  width: 100%;
+  padding: 20px;
+  box-sizing: border-box;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease, transform 0.3s ease;
   transform: translateY(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .stage[data-step="1"] .scene--rate,
 .stage[data-step="2"] .scene--prune,
 .stage[data-step="3"] .scene--grow {
   opacity: 1;
   transform: translateY(0);
+  pointer-events: auto;
 }
 
 /* ---- Scene 1: wrapped tweet mock mirroring the on-X injection ---- */
-.scene--rate {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 .demo {
   position: relative;
   width: 100%;
