@@ -18,7 +18,7 @@
   /** @type {{ title: string, body: string }[]} */
   const TOUR_STEPS = [
     {
-      title: "Rate what you see",
+      title: "Rate what you want to see",
       body: "",
     },
     {
@@ -51,6 +51,19 @@
     $("tourBackBtn").hidden = tourIndex === 0;
     $("tourNextBtn").textContent =
       tourIndex === TOUR_STEPS.length - 1 ? "Open X and start rating" : "Next";
+    updateNextGate();
+  }
+
+  // Step 1 is gated on the user actually trying a thumb. Later steps don't
+  // need interaction so Next is always visible.
+  function updateNextGate() {
+    const nextBtn = $("tourNextBtn");
+    if (tourIndex === 0) {
+      const rated = $("demoCard").dataset.state !== "pending";
+      nextBtn.hidden = !rated;
+    } else {
+      nextBtn.hidden = false;
+    }
   }
 
   /** @param {"yes" | "no" | null} decision */
@@ -76,6 +89,7 @@
         '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
       stateIcon.setAttribute("stroke-width", "3");
     }
+    updateNextGate();
   }
 
   function wireDemo() {
