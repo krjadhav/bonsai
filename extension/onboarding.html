@@ -32,18 +32,53 @@
     <section class="card tour" id="tour" hidden aria-label="How Bonsai works">
       <div class="stage" id="tourStage" data-step="1" aria-hidden="true">
         <div class="scene scene--rate">
-          <div class="mini-tweet">
-            <div class="mini-avatar"></div>
-            <div class="mini-lines">
-              <div class="mini-line w60"></div>
-              <div class="mini-line w90"></div>
+          <div class="demo">
+            <div class="demo__header">
+              <span class="demo__header-title">Rate to teach Bonsai</span>
+              <div class="demo__thumbs">
+                <button type="button" class="demo__thumb demo__thumb--yes" aria-hidden="true" tabindex="-1">
+                  <svg class="demo__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <svg class="demo__ico demo__ico--thumb" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73V10z"/></svg>
+                </button>
+                <button type="button" class="demo__thumb demo__thumb--no" aria-hidden="true" tabindex="-1">
+                  <svg class="demo__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  <svg class="demo__ico demo__ico--thumb demo__ico--flip" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73V10z"/></svg>
+                </button>
+              </div>
             </div>
-          </div>
-          <div class="choice choice--yes" aria-hidden="true">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div class="choice choice--no" aria-hidden="true">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+
+            <div class="demo__tweet">
+              <div class="demo__avatar" aria-hidden="true">JS</div>
+              <div class="demo__body">
+                <div class="demo__meta">
+                  <span class="demo__name">Justin Skycak</span>
+                  <svg class="demo__verified" viewBox="0 0 24 24" aria-hidden="true"><path fill="#1d9bf0" d="M22.25 12l-2.44-2.78.34-3.68-3.61-.82-1.89-3.18L11.25 3 7.85 1.54 5.96 4.72l-3.61.82.34 3.68L.25 12l2.44 2.78-.34 3.68 3.61.82 1.89 3.18 3.4-1.46 3.4 1.46 1.89-3.18 3.61-.82-.34-3.68L22.25 12zM9.59 16.5l-3.77-3.76 1.42-1.41 2.36 2.36 5.66-5.66 1.41 1.41-7.08 7.06z"/></svg>
+                  <span class="demo__handle">@justinskycak</span>
+                  <span class="demo__dot">·</span>
+                  <span class="demo__date">Nov 15</span>
+                </div>
+                <div class="demo__text">If you don't actively steer your life, comfort and normalcy will make the decisions for you. Mediocrity has a gravity that everyone succumbs to unless they are actively fighting against it day after day.</div>
+                <div class="demo__actions" aria-hidden="true">
+                  <span class="demo__action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>19</span>
+                  <span class="demo__action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>166</span>
+                  <span class="demo__action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>1.5K</span>
+                  <span class="demo__action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="20" x2="6" y2="14"/><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/></svg>21K</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="demo__footer" aria-hidden="true">
+              <span class="demo__state">
+                <svg class="demo__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                More like this
+              </span>
+              <span class="demo__remove">
+                <svg class="demo__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                Remove
+              </span>
+            </div>
+
+            <div class="demo__cursor" aria-hidden="true"></div>
           </div>
         </div>
 
