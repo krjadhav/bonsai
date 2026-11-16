@@ -274,7 +274,7 @@ html, body {
   position: absolute;
   width: 200px;
   height: auto;
-  right: calc(50% - 190px);
+  right: calc(50% - 150px);
   top: -80px;
   opacity: 0.85;
   pointer-events: none;
