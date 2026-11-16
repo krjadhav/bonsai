@@ -100,39 +100,31 @@
 
   /** @param {HTMLElement} feed */
   function initQuietFeed(feed) {
-    const track = /** @type {HTMLElement | null} */ (feed.querySelector(".feed__track"));
     const rows = /** @type {HTMLElement | null} */ (feed.querySelector(".feed__batch"));
-    if (!track || !rows) return;
+    if (!rows) return;
     const motion = matchMedia("(prefers-reduced-motion: reduce)");
 
-    const scheduleHide = (min = 1050, max = 2700) => {
+    const scheduleHide = (min = 1400, max = 2600) => {
       if (motion.matches || document.hidden) return;
-      quietFeedTimer = window.setTimeout(hideRandomRow, quietFeedBetween(min, max));
+      quietFeedTimer = window.setTimeout(pulseHiddenBadge, quietFeedBetween(min, max));
     };
 
-    function hideRandomRow() {
-      if (motion.matches || document.hidden || quietFeedActive) return;
-      const idx = Math.floor(quietFeedBetween(2, 4));
-      quietFeedActive = /** @type {HTMLElement | null} */ (rows?.children[idx] || null);
-      if (quietFeedActive) quietFeedActive.classList.add("is-hiding");
+    function pulseHiddenBadge() {
+      if (motion.matches || document.hidden || !rows) return;
+      const n = rows.children.length;
+      if (n === 0) return;
+      const idx = Math.floor(quietFeedBetween(0, n));
+      const row = /** @type {HTMLElement} */ (rows.children[idx]);
+      quietFeedActive = row;
+      row.classList.add("is-hiding");
+      window.setTimeout(() => {
+        row.classList.remove("is-hiding");
+        if (quietFeedActive === row) quietFeedActive = null;
+        scheduleHide();
+      }, 820);
     }
 
-    track.addEventListener("animationiteration", (event) => {
-      if (event.target === track && event.animationName === "feed-scroll-row") {
-        const first = rows.firstElementChild;
-        if (first) rows.append(first);
-      }
-    });
-    rows.addEventListener("animationend", (event) => {
-      if (event.target !== quietFeedActive || event.animationName !== "feed-close-gap") return;
-      if (quietFeedActive) {
-        rows.append(quietFeedActive);
-        quietFeedActive.classList.remove("is-hiding");
-        quietFeedActive = null;
-      }
-      scheduleHide();
-    });
-    scheduleHide(480, 1250);
+    scheduleHide(600, 1400);
   }
 
   // Step 1 is gated on the user actually trying a thumb. Later steps don't
