@@ -52,29 +52,32 @@ html, body {
   opacity: 0.6;
 }
 
-/* Decorative halftone bonsai anchored to the bottom-left of the viewport. */
+/* Decorative halftone bonsai anchored to the bottom-left of the viewport.
+   Roots meet the bottom edge and slip just under it; height scales with the
+   viewport so the silhouette stays proportional from 1280px laptops to
+   4K displays. */
 .deco-bonsai {
   position: fixed;
-  bottom: -40px;
-  left: -60px;
+  bottom: -28px;
+  left: -32px;
   width: auto;
-  height: 100vh;
-  max-height: 900px;
-  max-width: 60vw;
+  height: clamp(520px, 96vh, 1100px);
+  max-width: 58vw;
   object-fit: contain;
   object-position: bottom left;
-  opacity: 0.28;
+  opacity: 0.3;
   pointer-events: none;
   user-select: none;
   z-index: 0;
   filter: saturate(0.9);
 }
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .deco-bonsai {
-    height: 70vh;
-    max-width: 90vw;
-    left: -40px;
-    opacity: 0.18;
+    height: clamp(380px, 80vh, 720px);
+    max-width: 80vw;
+    left: -20px;
+    bottom: -20px;
+    opacity: 0.2;
   }
 }
 
