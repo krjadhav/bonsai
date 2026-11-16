@@ -275,18 +275,12 @@ html, body {
   width: 200px;
   height: auto;
   right: calc(50% - 210px);
-  top: -70px;
-  transform: scaleY(-1);
+  top: -80px;
   opacity: 0.85;
   pointer-events: none;
   user-select: none;
   transition: opacity 0.25s ease, transform 0.25s ease;
   z-index: 3;
-}
-.scene--rate:has(.demo[data-state="yes"]) .hint-arrow,
-.scene--rate:has(.demo[data-state="no"]) .hint-arrow {
-  opacity: 0;
-  transform: scaleY(-1) translateY(6px);
 }
 .scene--rate:has(.demo[data-state="yes"]) .hint-arrow,
 .scene--rate:has(.demo[data-state="no"]) .hint-arrow {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-/* global document */
+/* global document, getComputedStyle */
 // Opens onboarding.html in headless Chromium, forces the tour section
 // visible so we can see each step (sign-in gate would hide it otherwise),
 // and writes a PNG per step to .local/screenshots/ for the agent to inspect.
@@ -54,6 +54,20 @@ try {
     if (signedOut) signedOut.hidden = true;
     if (tour) tour.hidden = false;
   });
+
+  const debug = await page.evaluate(() => {
+    const el = document.querySelector(".hint-arrow");
+    if (!el) return { found: false };
+    const cs = getComputedStyle(el);
+    return {
+      found: true,
+      transform: cs.transform,
+      opacity: cs.opacity,
+      zIndex: cs.zIndex,
+      display: cs.display,
+    };
+  });
+  console.log("hint-arrow computed:", debug);
 
   for (const step of [1, 2, 3]) {
     await page.evaluate((s) => {
