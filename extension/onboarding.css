@@ -13,6 +13,8 @@
   --shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
   --font-display: "Playwrite US Trad", "Playwrite US Modern", "Segoe Script",
     "Bradley Hand", cursive;
+  --font-label: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -712,13 +714,13 @@ html, body {
 }
 
 .tour__title {
-  margin: 4px 0 8px;
-  font-family: inherit;
-  font-size: 13px;
+  margin: 4px 0 10px;
+  font-family: var(--font-label);
+  font-size: 14px;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.45;
   text-transform: uppercase;
-  letter-spacing: 2.2px;
+  letter-spacing: 1.6px;
   color: var(--text);
   text-align: center;
 }
