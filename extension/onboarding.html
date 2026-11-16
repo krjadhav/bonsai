@@ -44,6 +44,9 @@
 
     <!-- Step B: Tour -->
     <section class="card tour" id="tour" hidden aria-label="How Bonsai works">
+      <button type="button" class="tour__back" id="tourBackBtn" aria-label="Back" hidden>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
       <h2 class="tour__header">How it works</h2>
       <h3 class="tour__title" id="tourTitle">Rate what you want to see</h3>
       <p class="tour__body" id="tourBody"></p>
@@ -334,7 +337,6 @@
           <span class="step-dot" data-step="3"></span>
         </div>
         <div class="tour__actions">
-          <button id="tourBackBtn" class="btn ghost" hidden>Back</button>
           <button id="tourNextBtn" class="btn primary">Next</button>
         </div>
       </div>

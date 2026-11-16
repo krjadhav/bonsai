@@ -49,8 +49,15 @@
     dots.forEach((d, i) => d.classList.toggle("is-active", i === tourIndex));
 
     $("tourBackBtn").hidden = tourIndex === 0;
-    $("tourNextBtn").textContent =
-      tourIndex === TOUR_STEPS.length - 1 ? "Open X and start rating" : "Next";
+    const nextBtn = $("tourNextBtn");
+    const isLast = tourIndex === TOUR_STEPS.length - 1;
+    nextBtn.classList.toggle("btn--x", isLast);
+    if (isLast) {
+      nextBtn.innerHTML =
+        '<svg class="x-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>Open X and start rating';
+    } else {
+      nextBtn.textContent = "Next";
+    }
     updateNextGate();
 
     if (tourIndex === 1) restartSignalBloom();
@@ -105,7 +112,7 @@
     if (!rows || !viewport) return;
     const motion = matchMedia("(prefers-reduced-motion: reduce)");
 
-    const scheduleHide = (min = 1800, max = 2600) => {
+    const scheduleHide = (min = 900, max = 1500) => {
       if (motion.matches || document.hidden) return;
       quietFeedTimer = window.setTimeout(pulseHiddenBadge, quietFeedBetween(min, max));
     };
