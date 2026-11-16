@@ -101,20 +101,41 @@
   /** @param {HTMLElement} feed */
   function initQuietFeed(feed) {
     const rows = /** @type {HTMLElement | null} */ (feed.querySelector(".feed__batch"));
-    if (!rows) return;
+    const viewport = /** @type {HTMLElement | null} */ (feed.querySelector(".feed__window"));
+    if (!rows || !viewport) return;
     const motion = matchMedia("(prefers-reduced-motion: reduce)");
 
-    const scheduleHide = (min = 1400, max = 2600) => {
+    const scheduleHide = (min = 1800, max = 2600) => {
       if (motion.matches || document.hidden) return;
       quietFeedTimer = window.setTimeout(pulseHiddenBadge, quietFeedBetween(min, max));
     };
 
+    // Pick the row whose current geometric center sits closest to the second
+    // or third visible slot (upper middle of the 4-row window) so the hide
+    // flash lands where the eye is already settled, not at the mask edges.
+    function pickMidRow() {
+      const wRect = viewport.getBoundingClientRect();
+      const targetY = wRect.top + wRect.height * 0.42;
+      /** @type {HTMLElement | null} */
+      let best = null;
+      let bestDist = Infinity;
+      for (const r of rows.children) {
+        const el = /** @type {HTMLElement} */ (r);
+        const rRect = el.getBoundingClientRect();
+        const rowMid = rRect.top + rRect.height / 2;
+        const d = Math.abs(rowMid - targetY);
+        if (d < bestDist) {
+          bestDist = d;
+          best = el;
+        }
+      }
+      return best;
+    }
+
     function pulseHiddenBadge() {
-      if (motion.matches || document.hidden || !rows) return;
-      const n = rows.children.length;
-      if (n === 0) return;
-      const idx = Math.floor(quietFeedBetween(0, n));
-      const row = /** @type {HTMLElement} */ (rows.children[idx]);
+      if (motion.matches || document.hidden) return;
+      const row = pickMidRow();
+      if (!row) return scheduleHide();
       quietFeedActive = row;
       row.classList.add("is-hiding");
       window.setTimeout(() => {
@@ -124,7 +145,9 @@
       }, 820);
     }
 
-    scheduleHide(600, 1400);
+    // Fire the first hide almost immediately so the user sees the effect the
+    // moment they land on step 3 — the whole point of the scene.
+    scheduleHide(250, 450);
   }
 
   // Step 1 is gated on the user actually trying a thumb. Later steps don't
