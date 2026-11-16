@@ -577,48 +577,145 @@ html, body {
 
 .scene--grow {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  padding: 0;
 }
-.grown-logo {
-  width: 110px; height: 110px;
-  object-fit: contain;
-  animation: grow-pulse 3s ease-in-out infinite;
+
+/* ---- Quiet-feed animation (step 3 "Your feed heals") ----
+   Lifted from /Users/kausthubjadhav/Downloads/quiet-feed.html. Scoped to
+   .scene--grow .feed so names don't clash with the demo tweet in scene 1. */
+.feed-symbols { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.scene--grow .feed {
+  --scroll-step: 900ms;
+  --hide-time: 760ms;
+  --row: 72px;
+  --line: #25302b;
+  --mint: #b7e4cc;
+  width: 100%;
+  max-width: 420px;
+  overflow: hidden;
+  background: #0b100e;
+  border: 1px solid var(--line);
+  border-radius: 14px;
 }
-@keyframes grow-pulse {
-  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(78, 167, 109, 0.25)); }
-  50%      { transform: scale(1.05); filter: drop-shadow(0 0 18px rgba(78, 167, 109, 0.5)); }
-}
-.confidence { width: 300px; }
-.confidence-label {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--muted);
-  margin-bottom: 6px;
-  font-variant-numeric: tabular-nums;
-}
-.confidence-bar {
-  height: 8px;
-  background: #253a2b;
-  border-radius: 999px;
+.scene--grow .feed__window {
+  height: calc(var(--row) * 4);
   overflow: hidden;
 }
-.confidence-fill {
+.scene--grow .feed__mask {
   height: 100%;
-  width: 10%;
-  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
-  border-radius: 999px;
+  -webkit-mask-image: linear-gradient(transparent, #000 16px, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(transparent, #000 16px, #000 calc(100% - 24px), transparent);
 }
-.stage[data-step="3"] .confidence-fill {
-  animation: confidence-grow 3.2s ease-out infinite;
+.scene--grow .feed__track {
+  animation: feed-scroll-row var(--scroll-step) linear infinite;
 }
-@keyframes confidence-grow {
-  0%   { width: 15%; }
-  60%  { width: 87%; }
-  100% { width: 87%; }
+.scene--grow .feed__batch { margin: 0; padding: 0; list-style: none; }
+
+.scene--grow .post { height: var(--row); overflow: hidden; }
+.scene--grow .post__face {
+  position: relative;
+  height: var(--row);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.scene--grow .post__face::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(90deg, rgba(149, 220, 179, 0.11), rgba(149, 220, 179, 0.03) 70%, transparent);
+  box-shadow: inset 2px 0 rgba(167, 219, 188, 0.42);
+}
+.scene--grow .post__skeleton {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+  height: 100%;
+  gap: 10px;
+}
+.scene--grow .avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: radial-gradient(circle at 38% 26%, #45544c, #28352e 72%);
+}
+.scene--grow .post--cool .avatar {
+  background: radial-gradient(circle at 38% 26%, #414a4a, #252f30 72%);
+}
+.scene--grow .post--warm .avatar {
+  background: radial-gradient(circle at 38% 26%, #4e4d46, #35342f 72%);
+}
+.scene--grow .skeleton__copy { display: grid; gap: 6px; padding-top: 1px; }
+.scene--grow .skeleton__meta { display: flex; align-items: center; gap: 6px; }
+.scene--grow .bar {
+  display: block;
+  height: 6px;
+  border-radius: 4px;
+  background: #2a362f;
+}
+.scene--grow .skeleton__meta .bar:first-child { width: 48px; background: #3a4740; }
+.scene--grow .skeleton__meta .bar:last-child { width: 24px; height: 4px; background: #25302a; }
+.scene--grow .bar--long { width: var(--long, 77%); }
+.scene--grow .bar--short { width: var(--short, 43%); height: 5px; }
+.scene--grow .skeleton__actions {
+  display: flex;
+  justify-content: space-between;
+  max-width: 260px;
+  width: 92%;
+  height: 11px;
+  margin-top: 1px;
+  color: #53665c;
+}
+.scene--grow .skeleton__actions svg { width: 11px; height: 11px; }
+.scene--grow .post__status {
+  position: absolute;
+  top: 8px;
+  right: 11px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid rgba(158, 220, 179, 0.31);
+  border-radius: 20px;
+  background: #192a21;
+  color: var(--mint);
+  font-size: 10px;
+  white-space: nowrap;
+  opacity: 0;
+}
+.scene--grow .post__status svg { width: 10px; height: 10px; }
+
+@keyframes feed-scroll-row {
+  to { transform: translateY(calc(-1 * var(--row))); }
+}
+
+.scene--grow .post.is-hiding {
+  animation: feed-close-gap var(--hide-time) cubic-bezier(.33, 0, .25, 1) both;
+}
+.scene--grow .post.is-hiding .post__skeleton {
+  animation: feed-dissolve var(--hide-time) ease-in-out both;
+}
+.scene--grow .post.is-hiding .post__status,
+.scene--grow .post.is-hiding .post__face::before {
+  animation: feed-signal-hidden var(--hide-time) ease-in-out both;
+}
+@keyframes feed-close-gap {
+  0%, 47% { height: var(--row); }
+  100% { height: 0; }
+}
+@keyframes feed-dissolve {
+  0%, 39% { opacity: 1; filter: blur(0); }
+  78%, 100% { opacity: 0; filter: blur(4px); }
+}
+@keyframes feed-signal-hidden {
+  0%, 100% { opacity: 0; }
+  14%, 65% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scene--grow .feed *, .scene--grow .feed *::before { animation: none !important; }
 }
 
 .tour__title {

@@ -23,11 +23,11 @@
     },
     {
       title: "Bonsai learns",
-      body: "Your rated posts shape a preference model. More of what you want, less of what you don't.",
+      body: "",
     },
     {
-      title: "Your feed reshapes",
-      body: "Over time the feed leans toward the posts you keep and quiets the ones you drop.",
+      title: "Your feed heals",
+      body: "",
     },
   ];
 
@@ -54,6 +54,8 @@
     updateNextGate();
 
     if (tourIndex === 1) restartSignalBloom();
+    if (tourIndex === 2) restartQuietFeed();
+    else stopQuietFeed();
   }
 
   // The signal-bloom animation is a long (8s) multi-layer loop. Without a
@@ -64,6 +66,73 @@
     const el = document.querySelector(".signal-bloom");
     if (!el || !el.parentNode) return;
     el.parentNode.replaceChild(el.cloneNode(true), el);
+  }
+
+  // ---- Quiet-feed animation (step 3) ----
+  // CSS scrolls one row per cycle; JS picks a random visible row, hides it,
+  // recycles it to the bottom once the scroll iteration lands, and restarts
+  // the pick timer. Lifted from quiet-feed.html with the symbol prefix
+  // renamed so it doesn't collide with other inline SVGs.
+  let quietFeedTimer = 0;
+  let quietFeedActive = /** @type {HTMLElement | null} */ (null);
+  const quietFeedBetween = (/** @type {number} */ min, /** @type {number} */ max) =>
+    min + Math.random() * (max - min);
+
+  function stopQuietFeed() {
+    if (quietFeedTimer) {
+      clearTimeout(quietFeedTimer);
+      quietFeedTimer = 0;
+    }
+    if (quietFeedActive) {
+      quietFeedActive.classList.remove("is-hiding");
+      quietFeedActive = null;
+    }
+  }
+
+  function restartQuietFeed() {
+    const existing = document.getElementById("quietFeed");
+    if (!existing || !existing.parentNode) return;
+    stopQuietFeed();
+    const fresh = /** @type {HTMLElement} */ (existing.cloneNode(true));
+    existing.parentNode.replaceChild(fresh, existing);
+    initQuietFeed(fresh);
+  }
+
+  /** @param {HTMLElement} feed */
+  function initQuietFeed(feed) {
+    const track = /** @type {HTMLElement | null} */ (feed.querySelector(".feed__track"));
+    const rows = /** @type {HTMLElement | null} */ (feed.querySelector(".feed__batch"));
+    if (!track || !rows) return;
+    const motion = matchMedia("(prefers-reduced-motion: reduce)");
+
+    const scheduleHide = (min = 1050, max = 2700) => {
+      if (motion.matches || document.hidden) return;
+      quietFeedTimer = window.setTimeout(hideRandomRow, quietFeedBetween(min, max));
+    };
+
+    function hideRandomRow() {
+      if (motion.matches || document.hidden || quietFeedActive) return;
+      const idx = Math.floor(quietFeedBetween(2, 4));
+      quietFeedActive = /** @type {HTMLElement | null} */ (rows?.children[idx] || null);
+      if (quietFeedActive) quietFeedActive.classList.add("is-hiding");
+    }
+
+    track.addEventListener("animationiteration", (event) => {
+      if (event.target === track && event.animationName === "feed-scroll-row") {
+        const first = rows.firstElementChild;
+        if (first) rows.append(first);
+      }
+    });
+    rows.addEventListener("animationend", (event) => {
+      if (event.target !== quietFeedActive || event.animationName !== "feed-close-gap") return;
+      if (quietFeedActive) {
+        rows.append(quietFeedActive);
+        quietFeedActive.classList.remove("is-hiding");
+        quietFeedActive = null;
+      }
+      scheduleHide();
+    });
+    scheduleHide(480, 1250);
   }
 
   // Step 1 is gated on the user actually trying a thumb. Later steps don't
