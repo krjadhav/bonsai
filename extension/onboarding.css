@@ -189,7 +189,7 @@ html, body {
 /* ---------- Tour stage ---------- */
 .stage {
   position: relative;
-  min-height: 240px;
+  min-height: 300px;
   background: transparent;
   border: none;
   margin: 12px 0 20px;
@@ -370,42 +370,208 @@ html, body {
 
 .scene--prune {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 10px;
-  padding: 0 40px;
-}
-.row {
-  display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  justify-content: center;
+  padding: 10px 0;
 }
-.row-line { flex: 1; height: 7px; background: #2a3a2f; border-radius: 4px; }
-.row-line.w40 { width: 40%; }
-.row-line.w50 { width: 50%; }
-.row-line.w60 { width: 60%; }
-.row-line.w70 { width: 70%; }
-.row-line.w80 { width: 80%; }
-.dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
-.dot--yes { background: #4ea76d; box-shadow: 0 0 6px rgba(78, 167, 109, 0.5); }
-.dot--no  { background: #c76c57; }
-.stage[data-step="2"] .row--keep {
-  animation: keep-glow 3.2s ease-in-out infinite;
+
+/* ---- Signal-bloom animation (step 2 "Bonsai learns") ----
+   Lifted from /Users/kausthubjadhav/Downloads/signal-bloom-css.html.
+   Lavender swapped for Bonsai accent-green; green/red thumb palette kept
+   because they map to the yes/no decisions the ring represents. */
+.signal-bloom {
+  --lavender: #8fd6a9;
+  --cycle: 8s;
+  --green: #4ea76d;
+  --red: #e8745a;
+  position: relative;
+  isolation: isolate;
+  width: 246px;
+  height: 278px;
+  font: 16px system-ui, sans-serif;
 }
-.stage[data-step="2"] .row--drop {
-  animation: drop-fade 3.2s ease-in-out infinite;
+.signal-bloom *, .signal-bloom *::before, .signal-bloom *::after { box-sizing: border-box; }
+.signal-bloom .sb-pills {
+  position: absolute; top: 7px; left: 27px;
+  display: flex; gap: 12px;
 }
-@keyframes keep-glow {
-  0%, 15%  { opacity: 0.4; border-color: var(--border); }
-  45%, 100% { opacity: 1; border-color: rgba(78, 167, 109, 0.5); background: rgba(78, 167, 109, 0.06); }
+.signal-bloom .sb-pill {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  width: 90px; height: 34px;
+  border: 1.5px solid; border-radius: 999px;
+  color: var(--ink);
+  animation: var(--pulse) var(--cycle) ease-in-out infinite;
 }
-@keyframes drop-fade {
-  0%, 15%  { opacity: 0.4; filter: none; transform: scale(1); }
-  45%, 100% { opacity: 0.15; filter: grayscale(0.7); transform: scale(0.95); }
+.signal-bloom .sb-up   { --ink: var(--green); --pulse: sb26-pulse-up; }
+.signal-bloom .sb-down { --ink: var(--red);   --pulse: sb26-pulse-down; }
+.signal-bloom .sb-mark { width: 14px; height: 14px; position: relative; }
+.signal-bloom .sb-up .sb-mark::before {
+  content: ""; position: absolute; left: 1px; top: 2px;
+  width: 12px; height: 7px;
+  border: solid currentColor; border-width: 0 0 2px 2px;
+  transform: rotate(-45deg);
+}
+.signal-bloom .sb-down .sb-mark::before,
+.signal-bloom .sb-down .sb-mark::after {
+  content: ""; position: absolute; left: 0; top: 6px;
+  width: 14px; height: 2px; border-radius: 2px; background: currentColor;
+  transform: rotate(45deg);
+}
+.signal-bloom .sb-down .sb-mark::after { transform: rotate(-45deg); }
+.signal-bloom .sb-thumb {
+  display: block; width: 20px; height: 19px; background: currentColor;
+  clip-path: polygon(0 40%,20% 40%,20% 98%,0 98%,0 40%,27% 40%,
+    58% 2%,67% 3%,73% 13%,67% 36%,91% 36%,100% 44%,100% 55%,
+    87% 91%,79% 98%,27% 98%,27% 40%);
+}
+.signal-bloom .sb-down .sb-thumb { transform: scaleY(-1); }
+
+.signal-bloom .sb-ring {
+  position: absolute; top: 61px; left: 16px;
+  width: 214px; height: 214px; border-radius: 50%;
+  border: 1px solid rgba(143, 214, 169, 0.3);
+}
+.signal-bloom .sb-ring::before {
+  content: ""; position: absolute; inset: 8px;
+  border: 1px solid rgba(143, 214, 169, 0.16); border-radius: inherit;
+}
+.signal-bloom .sb-ring::after {
+  content: ""; position: absolute; inset: 12px; z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(circle, rgba(143, 214, 169, 0.22), rgba(143, 214, 169, 0.04) 44%, transparent 72%);
+  animation: sb26-halo var(--cycle) ease-in-out infinite;
+}
+.signal-bloom .sb-orbit {
+  position: absolute; inset: 0;
+  animation: sb26-fade var(--cycle) linear infinite;
+}
+.signal-bloom .sb-dot {
+  position: absolute; left: 50%; top: 50%;
+  width: 3px; height: 3px; margin: -1.5px;
+  border-radius: 50%; color: var(--ink); background: currentColor;
+  box-shadow: 0 0 5px currentColor;
+  animation: var(--flight) var(--cycle) linear infinite;
+}
+.signal-bloom .sb-orbit .sb-up { --from: -51px; }
+.signal-bloom .sb-orbit .sb-down { --from: 51px; }
+.signal-bloom .sb-dust {
+  position: absolute; inset: 0; color: var(--lavender);
+  animation: sb26-dust var(--cycle) ease-in-out infinite;
+}
+.signal-bloom .sb-dust::before, .signal-bloom .sb-dust::after {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  width: 2px; height: 2px; margin: -1px; border-radius: 50%;
+  box-shadow: var(--scatter);
+  animation: sb26-spin 30s linear infinite;
+}
+.signal-bloom .sb-dust::after { scale: .92; opacity: .48; animation-direction: reverse; animation-duration: 48s; }
+
+.signal-bloom .sb-tree {
+  position: absolute; left: 50%; top: 50%; z-index: 1;
+  animation: sb26-fade var(--cycle) linear infinite;
+}
+.signal-bloom .sb-limb {
+  position: absolute; left: 0; top: 0;
+  transform: translate(var(--x), var(--y)) rotate(var(--angle));
+}
+.signal-bloom .sb-limb::before {
+  content: ""; position: absolute; top: -1px; left: 0;
+  width: var(--length); height: 1.4px;
+  color: var(--lavender);
+  background: currentColor; box-shadow: 0 0 4px currentColor;
+  border-radius: 2px;
+  transform-origin: left center;
+  animation: var(--growth) var(--cycle) linear infinite;
+}
+.signal-bloom .sb-tip::after {
+  content: ""; position: absolute; left: var(--length); top: 0;
+  width: 2.6px; height: 2.6px; margin: -1.3px;
+  border-radius: 50%; background: var(--lavender);
+  box-shadow: 0 0 5px var(--lavender);
+  animation: sb26-tips var(--cycle) ease-out infinite;
+}
+.signal-bloom .sb-core {
+  position: absolute; width: 6px; height: 6px; margin: -3px;
+  background: var(--lavender); border-radius: 50%;
+  box-shadow: 0 0 10px 2px var(--lavender);
+  animation: sb26-core var(--cycle) ease-out infinite;
+}
+
+@keyframes sb26-fade {
+  0%, 73% { opacity: 1; }
+  97%, 100% { opacity: 0; }
+}
+@keyframes sb26-pulse-up {
+  0%, 8%, 17%, 26%, 35%, 47%, 100% { border-color: color-mix(in srgb, var(--ink) 46%, transparent); background: transparent; }
+  3%, 12%, 21%, 30%, 39% { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 19%, transparent); }
+}
+@keyframes sb26-pulse-down {
+  0%, 12%, 21%, 30%, 39%, 50%, 100% { border-color: color-mix(in srgb, var(--ink) 46%, transparent); background: transparent; }
+  6%, 16%, 25%, 34%, 43% { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 19%, transparent); }
+}
+@keyframes sb26-halo {
+  0%, 6%, 97%, 100% { opacity: 0; }
+  50%, 73% { opacity: 1; }
+}
+@keyframes sb26-dust {
+  0%, 7% { opacity: 0; }
+  52%, 100% { opacity: .82; }
+}
+@keyframes sb26-spin { to { transform: rotate(1turn); } }
+@keyframes sb26-core {
+  0%, 6.5% { opacity: 0; transform: scale(.45); }
+  16%, 100% { opacity: 1; transform: scale(1); }
+}
+@keyframes sb26-tips {
+  0%, 51.5% { opacity: 0; transform: scale(.45); }
+  56%, 100% { opacity: 1; transform: scale(1); }
+}
+@keyframes sb26-grow-1 {
+  0%, 8.2% { transform: scaleX(0); animation-timing-function: cubic-bezier(.23,.61,.32,1); }
+  19%, 100% { transform: scaleX(1); }
+}
+@keyframes sb26-grow-2 {
+  0%, 18.7% { transform: scaleX(0); animation-timing-function: cubic-bezier(.23,.61,.32,1); }
+  30.5%, 100% { transform: scaleX(1); }
+}
+@keyframes sb26-grow-3 {
+  0%, 30.1% { transform: scaleX(0); animation-timing-function: cubic-bezier(.23,.61,.32,1); }
+  42.1%, 100% { transform: scaleX(1); }
+}
+@keyframes sb26-grow-4 {
+  0%, 41.7% { transform: scaleX(0); animation-timing-function: cubic-bezier(.23,.61,.32,1); }
+  53.7%, 100% { transform: scaleX(1); }
+}
+
+@keyframes sb26-dot-1  { 0%, 2%     { opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 11%     { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(60.52deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-2  { 0%, 3.825% { opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 12.825% { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(59.28deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-3  { 0%, 5.65%  { opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 14.65%  { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(58.04deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-4  { 0%, 7.475% { opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 16.475% { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(56.80deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-5  { 0%, 9.3%   { opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 18.3%   { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(55.56deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-6  { 0%, 11.125%{ opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 20.125% { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(54.32deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-7  { 0%, 12.95% { opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 21.95%  { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(53.07deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-8  { 0%, 14.775%{ opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 23.775% { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(51.83deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-9  { 0%, 16.6%  { opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 25.6%   { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(50.59deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-10 { 0%, 18.425%{ opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 27.425% { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(49.35deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-11 { 0%, 20.25% { opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 29.25%  { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(48.11deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-12 { 0%, 22.075%{ opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 31.075% { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(46.87deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-13 { 0%, 23.9%  { opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 32.9%   { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(45.63deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-14 { 0%, 25.725%{ opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 34.725% { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(44.39deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-15 { 0%, 27.55% { opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 36.55%  { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(43.15deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-16 { 0%, 29.375%{ opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 38.375% { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(41.91deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-17 { 0%, 31.2% { opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 40.2% { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(40.66deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-18 { 0%, 33.025%{ opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 42.025% { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(39.42deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-19 { 0%, 34.85% { opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 43.85%  { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(38.18deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-20 { 0%, 36.675%{ opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 45.675% { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(36.94deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-21 { 0%, 38.5%  { opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 47.5%   { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(35.70deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-22 { 0%, 40.325%{ opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 49.325% { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(34.46deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-23 { 0%, 42.15% { opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 51.15%  { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(33.22deg) translate(var(--x), var(--y)); } }
+@keyframes sb26-dot-24 { 0%, 43.975%{ opacity: 0; transform: rotate(0deg) translate(var(--from), -126px); animation-timing-function: cubic-bezier(.23,.62,.31,1); } 52.975% { opacity: .95; transform: rotate(0deg) translate(var(--x), var(--y)); } 100% { opacity: .95; transform: rotate(31.98deg) translate(var(--x), var(--y)); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .signal-bloom *, .signal-bloom *::before, .signal-bloom *::after { animation: none !important; }
+  .signal-bloom .sb-dot { transform: translate(var(--x), var(--y)); }
+  .signal-bloom .sb-pill { border-color: color-mix(in srgb, var(--ink) 46%, transparent); }
 }
 
 .scene--grow {
