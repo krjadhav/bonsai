@@ -11,6 +11,8 @@
   --radius: 14px;
   --radius-sm: 9px;
   --shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  --font-display: "Playwrite US Trad", "Playwrite US Modern", "Segoe Script",
+    "Bradley Hand", cursive;
 }
 
 * { box-sizing: border-box; }
@@ -34,6 +36,25 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 28px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Decorative halftone bonsai sitting in the bottom-left of the viewport. */
+.deco-bonsai {
+  position: fixed;
+  bottom: -60px;
+  left: -60px;
+  width: 360px;
+  height: auto;
+  opacity: 0.12;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  filter: saturate(0.9);
+}
+@media (max-width: 640px) {
+  .deco-bonsai { width: 240px; bottom: -40px; left: -40px; opacity: 0.08; }
 }
 
 .hero {
@@ -51,9 +72,11 @@ html, body {
 .hero__text { min-width: 0; }
 .hero__title {
   margin: 0 0 4px;
-  font-size: 26px;
-  font-weight: 650;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 400;
   letter-spacing: -0.2px;
+  line-height: 1.15;
 }
 .hero__sub {
   margin: 0;
@@ -76,8 +99,10 @@ html, body {
 }
 .card__title {
   margin: 0 0 8px;
-  font-size: 18px;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.2;
 }
 .card__body {
   margin: 0 0 20px;
@@ -127,12 +152,10 @@ html, body {
 /* ---------- Tour stage (larger than popup) ---------- */
 .stage {
   position: relative;
-  min-height: 280px;
-  background: linear-gradient(180deg, #0f1612 0%, #141c16 100%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  margin-bottom: 20px;
+  min-height: 240px;
+  background: transparent;
+  border: none;
+  margin: 12px 0 20px;
   display: grid;
   grid-template-columns: 1fr;
   grid-template-rows: 1fr;
@@ -142,7 +165,7 @@ html, body {
 .scene {
   grid-area: 1 / 1;
   width: 100%;
-  padding: 20px;
+  padding: 0;
   box-sizing: border-box;
   opacity: 0;
   pointer-events: none;
@@ -396,15 +419,19 @@ html, body {
 
 .tour__title {
   margin: 0 0 6px;
-  font-size: 18px;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.2;
   color: var(--text);
 }
 .tour__body {
-  margin: 0 0 18px;
+  margin: 0 0 4px;
   color: var(--muted);
   font-size: 14px;
+  min-height: 1.2em;
 }
+.tour__body:empty { display: none; }
 .tour__footer {
   display: flex;
   flex-direction: column;

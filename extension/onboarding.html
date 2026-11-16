@@ -4,9 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Welcome to Bonsai</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playwrite+US+Trad:wght@100..400&display=swap" />
   <link rel="stylesheet" href="onboarding.css" />
 </head>
 <body>
+  <img class="deco-bonsai" src="icons/bonsai-halftone.png" alt="" aria-hidden="true" />
   <main class="wrap">
     <header class="hero">
       <img class="hero__logo" src="icons/bonsai-128.png" alt="" />
@@ -30,6 +34,8 @@
 
     <!-- Step B: Tour -->
     <section class="card tour" id="tour" hidden aria-label="How Bonsai works">
+      <h3 class="tour__title" id="tourTitle">Rate what you see</h3>
+      <p class="tour__body" id="tourBody"></p>
       <div class="stage" id="tourStage" data-step="1" aria-hidden="true">
         <div class="scene scene--rate">
           <div class="demo" id="demoCard" data-state="pending">
@@ -102,11 +108,6 @@
         </div>
       </div>
 
-      <h3 class="tour__title" id="tourTitle">Rate what you see</h3>
-      <p class="tour__body" id="tourBody">
-        On every post on X, tap the thumb icons to mark it as more like this or less like this.
-      </p>
-
       <div class="tour__footer">
         <div class="step-dots step-dots--manual" id="tourDots">
           <span class="step-dot is-active" data-step="1"></span>
@@ -121,7 +122,6 @@
     </section>
 
     <footer class="foot">
-      <span class="foot__hint">You can close this tab anytime. Bonsai lives in your extensions menu.</span>
     </footer>
   </main>
 
