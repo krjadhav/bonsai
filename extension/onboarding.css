@@ -266,23 +266,21 @@ html, body {
   pointer-events: auto;
 }
 
-/* Hand-drawn hint arrow curving up toward the thumb buttons. Shown only on
-   scene 1 to nudge the user to rate the mock tweet before the gated Next
-   appears. Hidden once a rating is picked so it doesn't nag. */
+/* Hand-drawn hint arrow asset nudging the user toward the thumb buttons
+   in the top-right of the demo card. Shown on scene 1; fades out the
+   moment the user picks a rating. */
 .scene--rate { position: relative; }
 .hint-arrow {
   position: absolute;
-  width: 170px;
-  height: 130px;
-  left: calc(50% - 320px);
-  top: -30px;
-  color: #c5d3cb;
-  opacity: 0.85;
+  width: 180px;
+  height: auto;
+  left: calc(50% - 300px);
+  top: -40px;
+  opacity: 0.9;
   pointer-events: none;
+  user-select: none;
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
-.demo[data-state="yes"] ~ .hint-arrow,
-.demo[data-state="no"] ~ .hint-arrow,
 .scene--rate:has(.demo[data-state="yes"]) .hint-arrow,
 .scene--rate:has(.demo[data-state="no"]) .hint-arrow {
   opacity: 0;
