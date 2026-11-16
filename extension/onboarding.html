@@ -12,7 +12,7 @@
       <img class="hero__logo" src="icons/bonsai-128.png" alt="" />
       <div class="hero__text">
         <h1 class="hero__title">Welcome to Bonsai</h1>
-        <p class="hero__sub">Teach your X feed what you want to see. Yes/No your way to a calmer timeline.</p>
+        <p class="hero__sub">Teach your feed what you want to see.</p>
       </div>
       <div class="hero__ver" id="verLabel"></div>
     </header>
@@ -32,15 +32,15 @@
     <section class="card tour" id="tour" hidden aria-label="How Bonsai works">
       <div class="stage" id="tourStage" data-step="1" aria-hidden="true">
         <div class="scene scene--rate">
-          <div class="demo">
+          <div class="demo" id="demoCard" data-state="pending">
             <div class="demo__header">
-              <span class="demo__header-title">Rate to teach Bonsai</span>
+              <span class="demo__header-title" id="demoHeaderTitle">Rate to teach Bonsai</span>
               <div class="demo__thumbs">
-                <button type="button" class="demo__thumb demo__thumb--yes" aria-hidden="true" tabindex="-1">
+                <button type="button" class="demo__thumb demo__thumb--yes" id="demoYes" aria-label="More like this">
                   <svg class="demo__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                   <svg class="demo__ico demo__ico--thumb" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73V10z"/></svg>
                 </button>
-                <button type="button" class="demo__thumb demo__thumb--no" aria-hidden="true" tabindex="-1">
+                <button type="button" class="demo__thumb demo__thumb--no" id="demoNo" aria-label="Less like this">
                   <svg class="demo__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   <svg class="demo__ico demo__ico--thumb demo__ico--flip" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73V10z"/></svg>
                 </button>
@@ -67,18 +67,16 @@
               </div>
             </div>
 
-            <div class="demo__footer" aria-hidden="true">
-              <span class="demo__state">
-                <svg class="demo__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                More like this
+            <div class="demo__footer" id="demoFooter">
+              <span class="demo__state" id="demoState">
+                <svg class="demo__ico" id="demoStateIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <span id="demoStateText">More like this</span>
               </span>
-              <span class="demo__remove">
+              <button type="button" class="demo__remove" id="demoRemove" aria-label="Remove rating">
                 <svg class="demo__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                 Remove
-              </span>
+              </button>
             </div>
-
-            <div class="demo__cursor" aria-hidden="true"></div>
           </div>
         </div>
 

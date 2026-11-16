@@ -19,7 +19,7 @@
   const TOUR_STEPS = [
     {
       title: "Rate what you see",
-      body: "On every post on X, tap the thumb icons to mark it as more like this or less like this.",
+      body: "",
     },
     {
       title: "Bonsai learns",
@@ -51,6 +51,47 @@
     $("tourBackBtn").hidden = tourIndex === 0;
     $("tourNextBtn").textContent =
       tourIndex === TOUR_STEPS.length - 1 ? "Open X and start rating" : "Next";
+  }
+
+  /** @param {"yes" | "no" | null} decision */
+  function paintDemo(decision) {
+    const card = $("demoCard");
+    const yesBtn = $("demoYes");
+    const noBtn = $("demoNo");
+    const stateText = $("demoStateText");
+    const stateIcon = $("demoStateIcon");
+
+    const state = decision || "pending";
+    card.dataset.state = state;
+    yesBtn.classList.toggle("is-active", decision === "yes");
+    noBtn.classList.toggle("is-active", decision === "no");
+
+    if (decision === "yes") {
+      stateText.textContent = "More like this";
+      stateIcon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+      stateIcon.setAttribute("stroke-width", "3");
+    } else if (decision === "no") {
+      stateText.textContent = "Less like this";
+      stateIcon.innerHTML =
+        '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
+      stateIcon.setAttribute("stroke-width", "3");
+    }
+  }
+
+  function wireDemo() {
+    const yesBtn = $("demoYes");
+    const noBtn = $("demoNo");
+    const removeBtn = $("demoRemove");
+
+    yesBtn.addEventListener("click", () => {
+      const curr = $("demoCard").dataset.state;
+      paintDemo(curr === "yes" ? null : "yes");
+    });
+    noBtn.addEventListener("click", () => {
+      const curr = $("demoCard").dataset.state;
+      paintDemo(curr === "no" ? null : "no");
+    });
+    removeBtn.addEventListener("click", () => paintDemo(null));
   }
 
   async function refreshUI() {
@@ -145,6 +186,7 @@
     $("signInBtn").addEventListener("click", signIn);
     $("tourNextBtn").addEventListener("click", tourNext);
     $("tourBackBtn").addEventListener("click", tourBack);
+    wireDemo();
 
     refreshUI();
   });

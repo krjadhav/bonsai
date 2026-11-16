@@ -188,11 +188,24 @@ html, body {
   border-radius: 999px;
   font-size: 11px;
   border: 1px solid transparent;
-  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.1s;
-  cursor: default;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.05s;
+  cursor: pointer;
 }
+.demo__thumb:active { transform: translateY(1px); }
 .demo__thumb--yes { color: #4ea76d; border-color: rgba(78, 167, 109, 0.4); }
-.demo__thumb--no  { color: #e8745a; border-color: rgba(232, 116, 90, 0.45); }
+.demo__thumb--yes:hover { background: rgba(78, 167, 109, 0.12); }
+.demo__thumb--yes.is-active {
+  background: #1e7a3e;
+  color: #ffffff;
+  border-color: #27a04f;
+}
+.demo__thumb--no { color: #e8745a; border-color: rgba(232, 116, 90, 0.45); }
+.demo__thumb--no:hover { background: rgba(232, 116, 90, 0.1); }
+.demo__thumb--no.is-active {
+  background: rgba(232, 116, 90, 0.18);
+  border-color: #e8745a;
+  color: #ffb49f;
+}
 .demo__ico { width: 11px; height: 11px; display: inline-block; flex: none; }
 .demo__ico--thumb { width: 12px; height: 12px; }
 .demo__ico--flip { transform: scaleY(-1); }
@@ -246,23 +259,28 @@ html, body {
 .demo__action svg { width: 13px; height: 13px; }
 
 .demo__footer {
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: space-between;
   padding: 8px 0 10px;
   margin-top: 6px;
   font-size: 11px;
-  color: #4ea76d;
-  opacity: 0;
-  transform: translateY(-4px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.demo[data-state="yes"] .demo__footer,
+.demo[data-state="no"] .demo__footer {
+  display: flex;
+  animation: demo-footer-in 0.2s ease-out;
 }
 .demo__state {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  color: #8a9aa1;
 }
+.demo[data-state="yes"] .demo__state { color: #4ea76d; }
+.demo[data-state="no"] .demo__state { color: #e8745a; }
 .demo__remove {
+  all: unset;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -271,51 +289,17 @@ html, body {
   border-radius: 999px;
   border: 1px solid #2a3a2f;
   font-size: 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-
-/* Fake cursor that lands on the thumbs-up button mid-loop. */
-.demo__cursor {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 14px;
-  height: 18px;
-  background: #ffffff;
-  clip-path: polygon(0 0, 100% 50%, 55% 55%, 80% 100%, 65% 100%, 45% 70%, 0 100%);
-  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
-  opacity: 0;
-  pointer-events: none;
+.demo__remove:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: #3a4a3f;
+  color: #c5d3cb;
 }
-
-/* Interaction loop: cursor glides in, yes-thumb fills, footer reveals, reset. */
-.stage[data-step="1"] .demo__cursor {
-  animation: demo-cursor 5s ease-in-out infinite;
-}
-.stage[data-step="1"] .demo__thumb--yes {
-  animation: demo-thumb-yes 5s ease-in-out infinite;
-}
-.stage[data-step="1"] .demo__footer {
-  animation: demo-footer 5s ease-in-out infinite;
-}
-
-@keyframes demo-cursor {
-  0%           { opacity: 0; top: 70%; left: 20%; }
-  10%          { opacity: 1; }
-  40%          { opacity: 1; top: 8%;  left: calc(100% - 90px); }
-  48%          { opacity: 1; top: 10%; left: calc(100% - 92px); transform: scale(0.9); }
-  52%          { opacity: 1; top: 8%;  left: calc(100% - 90px); transform: scale(1); }
-  80%, 100%    { opacity: 0; top: 8%;  left: calc(100% - 90px); }
-}
-@keyframes demo-thumb-yes {
-  0%, 45%   { background: transparent; color: #4ea76d; border-color: rgba(78, 167, 109, 0.4); transform: scale(1); }
-  50%       { background: #1e7a3e; color: #ffffff; border-color: #27a04f; transform: scale(0.94); }
-  55%, 92%  { background: #1e7a3e; color: #ffffff; border-color: #27a04f; transform: scale(1); }
-  100%      { background: transparent; color: #4ea76d; border-color: rgba(78, 167, 109, 0.4); transform: scale(1); }
-}
-@keyframes demo-footer {
-  0%, 48%  { opacity: 0; transform: translateY(-4px); }
-  58%, 92% { opacity: 1; transform: translateY(0); }
-  100%     { opacity: 0; transform: translateY(-4px); }
+@keyframes demo-footer-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .scene--prune {
