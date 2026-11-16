@@ -377,10 +377,11 @@ html, body {
 
 /* ---- Signal-bloom animation (step 2 "Bonsai learns") ----
    Lifted from /Users/kausthubjadhav/Downloads/signal-bloom-css.html.
-   Lavender swapped for Bonsai accent-green; green/red thumb palette kept
-   because they map to the yes/no decisions the ring represents. */
+   Kept the source's lavender for the center tree/core so the growing
+   "model" layer reads as something distinct from the green/red thumb
+   signals feeding it. */
 .signal-bloom {
-  --lavender: #8fd6a9;
+  --lavender: #8786D9;
   --cycle: 8s;
   --green: #4ea76d;
   --red: #e8745a;
@@ -429,16 +430,16 @@ html, body {
 .signal-bloom .sb-ring {
   position: absolute; top: 61px; left: 16px;
   width: 214px; height: 214px; border-radius: 50%;
-  border: 1px solid rgba(143, 214, 169, 0.3);
+  border: 1px solid rgba(135, 134, 217, 0.3);
 }
 .signal-bloom .sb-ring::before {
   content: ""; position: absolute; inset: 8px;
-  border: 1px solid rgba(143, 214, 169, 0.16); border-radius: inherit;
+  border: 1px solid rgba(135, 134, 217, 0.16); border-radius: inherit;
 }
 .signal-bloom .sb-ring::after {
   content: ""; position: absolute; inset: 12px; z-index: -1;
   border-radius: inherit;
-  background: radial-gradient(circle, rgba(143, 214, 169, 0.22), rgba(143, 214, 169, 0.04) 44%, transparent 72%);
+  background: radial-gradient(circle, rgba(135, 134, 217, 0.22), rgba(135, 134, 217, 0.04) 44%, transparent 72%);
   animation: sb26-halo var(--cycle) ease-in-out infinite;
 }
 .signal-bloom .sb-orbit {

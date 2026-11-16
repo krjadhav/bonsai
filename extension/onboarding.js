@@ -23,7 +23,7 @@
     },
     {
       title: "Bonsai learns",
-      body: "Your rated posts shape a preference model — more of what you want, less of what you don't.",
+      body: "Your rated posts shape a preference model. More of what you want, less of what you don't.",
     },
     {
       title: "Your feed reshapes",
@@ -52,6 +52,18 @@
     $("tourNextBtn").textContent =
       tourIndex === TOUR_STEPS.length - 1 ? "Open X and start rating" : "Next";
     updateNextGate();
+
+    if (tourIndex === 1) restartSignalBloom();
+  }
+
+  // The signal-bloom animation is a long (8s) multi-layer loop. Without a
+  // reset, the user usually lands on step 2 mid-cycle and only sees the fade
+  // phase. Replacing the node with a fresh clone forces every CSS animation
+  // to restart at frame 0.
+  function restartSignalBloom() {
+    const el = document.querySelector(".signal-bloom");
+    if (!el || !el.parentNode) return;
+    el.parentNode.replaceChild(el.cloneNode(true), el);
   }
 
   // Step 1 is gated on the user actually trying a thumb. Later steps don't
