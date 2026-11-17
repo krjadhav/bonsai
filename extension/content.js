@@ -63,6 +63,7 @@
     const tweetedAt = timeEl ? timeEl.getAttribute("datetime") : null;
 
     const mediaTypes = detectMedia(article);
+    const { repostedBy, quoted } = extractRepostContext(article);
 
     return {
       postId,
@@ -73,9 +74,64 @@
       tweetedAt,
       hasMedia: mediaTypes.length > 0,
       mediaTypes,
+      repostedBy,
+      quoted,
       capturedAt: new Date().toISOString(),
       decision: null,
     };
+  }
+
+  // Pull a display name + handle out of a [data-testid="User-Name"] subtree.
+  /**
+   * @param {Element} userEl
+   * @returns {{ name: string | null, handle: string | null }}
+   */
+  function readUserBlock(userEl) {
+    let name = null;
+    let handle = null;
+    for (const s of userEl.querySelectorAll("span")) {
+      const t = /** @type {HTMLElement} */ (s).innerText.trim();
+      if (!name && t && !t.startsWith("@") && !t.includes("·")) name = t;
+      if (!handle && t.startsWith("@")) handle = t;
+    }
+    return { name, handle };
+  }
+
+  // Two repost shapes to distinguish:
+  //   1. Plain retweet: X shows the original tweet with a `socialContext`
+  //      chip above it ("Jane reposted"). The article's authorName is still
+  //      the original author — we just surface who reposted.
+  //   2. Quote tweet: the article has two User-Name + two tweetText nodes.
+  //      Outer author = the quoter; nested = who/what they quoted.
+  //   Both can co-occur (a retweet of a quote tweet).
+  /**
+   * @param {HTMLElement} article
+   * @returns {{ repostedBy: string | null, quoted: BonsaiQuotedPost | null }}
+   */
+  function extractRepostContext(article) {
+    const socialCtx = /** @type {HTMLElement | null} */ (
+      article.querySelector('[data-testid="socialContext"]')
+    );
+    let repostedBy = null;
+    if (socialCtx) {
+      const txt = socialCtx.innerText.trim();
+      if (/reposted/i.test(txt)) {
+        repostedBy = txt.replace(/\s*reposted.*$/i, "").trim() || null;
+      }
+    }
+    /** @type {BonsaiQuotedPost | null} */
+    let quoted = null;
+    const userNames = article.querySelectorAll('[data-testid="User-Name"]');
+    if (userNames.length >= 2) {
+      const { name, handle } = readUserBlock(userNames[1]);
+      const tweetTexts = article.querySelectorAll('[data-testid="tweetText"]');
+      const content =
+        tweetTexts.length >= 2
+          ? /** @type {HTMLElement} */ (tweetTexts[1]).innerText.trim()
+          : "";
+      quoted = { authorName: name, authorHandle: handle, content };
+    }
+    return { repostedBy, quoted };
   }
 
   // Media detection is called twice: once at article attach time, and again at
