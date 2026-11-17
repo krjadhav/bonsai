@@ -30,6 +30,14 @@ async function getConfig() {
 //   * Fresh install only: open the onboarding tab. Users rarely pin the
 //     extension, so we cannot rely on the popup for first-run setup.
 // ---------------------------------------------------------------------------
+// Service workers wake on install, update, browser start, and after idle
+// eviction. Pull backend state on every wake if we're signed in — one GET
+// against a user-scoped query is well under the Firestore free tier, and it
+// fixes the reinstall-zeros-the-progress-bar class of bug.
+chrome.runtime.onStartup.addListener(() => {
+  hydrateFromBackend().catch((e) => console.warn("startup hydrate failed", e));
+});
+
 chrome.runtime.onInstalled.addListener(async (details) => {
   try {
     await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
@@ -103,6 +111,7 @@ async function completeSignIn(token) {
     token,
   };
   await chrome.storage.local.set({ [USER_KEY]: user });
+  hydrateFromBackend().catch((e) => console.warn("post sign-in hydrate failed", e));
   return user;
 }
 
@@ -209,6 +218,44 @@ async function trySendCapture(capture) {
   }
 }
 
+// Pull every post this user previously submitted and merge into local storage.
+// Runs after sign-in and on service-worker startup so a fresh install (or new
+// device) rehydrates the teaching-progress bar and sidebar instead of
+// restarting the count from zero. Local wins on conflict: if the user rated
+// the same post twice offline, their most recent local decision stays.
+async function hydrateFromBackend() {
+  const [cfg, { [USER_KEY]: userRaw }, { [STORAGE_KEY]: capRaw }] = await Promise.all([
+    getConfig(),
+    chrome.storage.local.get(USER_KEY),
+    chrome.storage.local.get(STORAGE_KEY),
+  ]);
+  const user = /** @type {BonsaiUser | undefined} */ (userRaw);
+  if (!cfg.apiBaseUrl || !user?.token) return { skipped: true };
+  let items;
+  try {
+    const res = await fetch(`${cfg.apiBaseUrl.replace(/\/$/, "")}/posts`, {
+      headers: { Authorization: "Bearer " + user.token },
+    });
+    if (!res.ok) throw new Error(`GET /posts ${res.status}`);
+    const body = await res.json();
+    items = /** @type {BonsaiCapture[]} */ (body.items || []);
+  } catch (e) {
+    console.warn("hydrateFromBackend failed", e);
+    return { error: String(e) };
+  }
+  const local = /** @type {BonsaiCapture[]} */ (capRaw || []);
+  const byId = new Map();
+  for (const it of items) if (it.postId) byId.set(it.postId, it);
+  for (const it of local) if (it.postId) byId.set(it.postId, it); // local wins
+  const merged = [...byId.values()].sort((a, b) => {
+    const at = a.decidedAt || a.capturedAt || "";
+    const bt = b.decidedAt || b.capturedAt || "";
+    return bt.localeCompare(at);
+  });
+  await chrome.storage.local.set({ [STORAGE_KEY]: merged });
+  return { ok: true, pulled: items.length, total: merged.length };
+}
+
 async function syncAll() {
   const [capStore, userStore, cfg] = await Promise.all([
     chrome.storage.local.get(STORAGE_KEY),
@@ -253,6 +300,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           break;
         case "bonsai:syncAll":
           sendResponse(await syncAll());
+          break;
+        case "bonsai:hydrate":
+          sendResponse(await hydrateFromBackend());
           break;
         case "bonsai:getConfig":
           sendResponse(await getConfig());

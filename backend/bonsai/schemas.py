@@ -30,3 +30,26 @@ class PostOut(BaseModel):
     ok: bool
     post_id: str
     inserted: bool
+
+
+class PostRecord(BaseModel):
+    """A single user capture read back from Firestore for hydration."""
+
+    post_id: str = Field(serialization_alias="postId")
+    permalink: str | None = None
+    author_name: str | None = Field(default=None, serialization_alias="authorName")
+    author_handle: str | None = Field(default=None, serialization_alias="authorHandle")
+    content: str | None = None
+    tweeted_at: datetime | None = Field(default=None, serialization_alias="tweetedAt")
+    has_media: bool = Field(default=False, serialization_alias="hasMedia")
+    media_types: list[str] = Field(default_factory=list, serialization_alias="mediaTypes")
+    captured_at: datetime | None = Field(default=None, serialization_alias="capturedAt")
+    decided_at: datetime | None = Field(default=None, serialization_alias="decidedAt")
+    decision: Decision | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class PostListOut(BaseModel):
+    items: list[PostRecord]
+    count: int

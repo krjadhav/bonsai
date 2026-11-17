@@ -19,11 +19,12 @@ from datetime import UTC, datetime
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from google.cloud.firestore import SERVER_TIMESTAMP
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 from .auth import AuthUser, current_user
 from .config import get_settings
 from .db import collection_ref, doc_id
-from .schemas import PostIn, PostOut
+from .schemas import PostIn, PostListOut, PostOut, PostRecord
 
 log = logging.getLogger("bonsai")
 
@@ -74,3 +75,38 @@ async def ingest_post(
         raise HTTPException(status_code=502, detail=f"firestore upsert failed: {exc}") from exc
 
     return PostOut(ok=True, post_id=payload.post_id, inserted=True)
+
+
+@app.get("/posts", response_model=PostListOut)
+async def list_posts(
+    user: AuthUser = Depends(current_user),
+) -> PostListOut:
+    """Return every capture this user has ever submitted. Used by the extension
+    to rehydrate local storage after reinstall or on a new device so the
+    teaching-progress bar and sidebar reflect the real total, not just what
+    survived on this install."""
+    try:
+        query = collection_ref().where(filter=FieldFilter("user_sub", "==", user.sub))
+        items = [PostRecord(**_normalize(doc.to_dict() or {})) for doc in query.stream()]
+    except Exception as exc:
+        log.exception("firestore list failed for sub=%s", user.sub)
+        raise HTTPException(status_code=502, detail=f"firestore list failed: {exc}") from exc
+    return PostListOut(items=items, count=len(items))
+
+
+def _normalize(doc: dict) -> dict:
+    """Trim fields Firestore returns that PostRecord doesn't model."""
+    allowed = {
+        "post_id",
+        "permalink",
+        "author_name",
+        "author_handle",
+        "content",
+        "tweeted_at",
+        "has_media",
+        "media_types",
+        "captured_at",
+        "decided_at",
+        "decision",
+    }
+    return {k: v for k, v in doc.items() if k in allowed}
