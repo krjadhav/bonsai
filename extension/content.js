@@ -4,8 +4,7 @@
 // Storage policy: only posts the user explicitly rates (Yes/No) land in
 // chrome.storage.local. Undecided impressions are tracked in-memory per tab
 // for the progress badge only; they never hit storage or the backend. This
-// keeps the validation sidebar focused on real teaching signal and keeps
-// Firestore writes proportional to interactions, not scrolling.
+// keeps Firestore writes proportional to interactions, not scrolling.
 
 (() => {
   if (window.__bonsaiInjected) return;

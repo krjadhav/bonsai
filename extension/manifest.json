@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Bonsai — feed filter",
   "short_name": "Bonsai",
-  "version": "0.8.27",
+  "version": "0.8.28",
   "description": "Teach your X feed what you want to see. Yes/No your way to a calmer timeline.",
   "action": {
     "default_title": "Bonsai",
@@ -20,13 +20,9 @@
     "48": "icons/bonsai-48.png",
     "128": "icons/bonsai-128.png"
   },
-  "side_panel": {
-    "default_path": "sidebar.html"
-  },
   "permissions": [
     "identity",
     "storage",
-    "sidePanel",
     "activeTab",
     "tabs",
     "webNavigation",
@@ -63,16 +59,5 @@
       "email",
       "profile"
     ]
-  },
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "sidebar.html"
-      ],
-      "matches": [
-        "https://x.com/*",
-        "https://twitter.com/*"
-      ]
-    }
-  ]
+  }
 }

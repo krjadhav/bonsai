@@ -155,9 +155,6 @@ if (manifest) {
   // Background service worker
   checkPath(manifest.background?.service_worker, "background.service_worker");
 
-  // Side panel
-  checkPath(manifest.side_panel?.default_path, "side_panel.default_path");
-
   // Content scripts
   for (const cs of manifest.content_scripts || []) {
     for (const j of cs.js || []) checkPath(j, "content_scripts.js");
@@ -183,7 +180,7 @@ if (manifest && pkg.version !== manifest.version) {
 }
 
 // ---------- 5. HTML -> manifest popup script tag coherence ----------
-// Loaded popup/sidebar HTML must reference scripts that live next to them.
+// Loaded popup / onboarding HTML must reference scripts that live next to them.
 for (const file of htmlFiles) {
   const src = read(file);
   const re = /<script[^>]*\bsrc\s*=\s*["']([^"']+)["']/g;

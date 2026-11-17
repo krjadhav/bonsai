@@ -5,13 +5,12 @@
 // Launches bundled Chromium in headless mode with the unpacked extension
 // loaded, then:
 //   * Waits for the MV3 service worker to register and reports its errors.
-//   * Opens the popup HTML directly (chrome-extension://<id>/popup.html)
-//     and reports any errors or page errors from it.
-//   * Opens the sidebar HTML the same way.
+//   * Opens the popup and onboarding HTML pages directly
+//     (chrome-extension://<id>/<page>.html) and reports any errors.
 //
-// Fails fast if any of the three contexts produces an Error-level console
-// message or a thrown page error. This catches the bug class that lights up
-// the red "Errors" button at chrome://extensions after a reload.
+// Fails fast if any context produces an Error-level console message or a
+// thrown page error. This catches the bug class that lights up the red
+// "Errors" button at chrome://extensions after a reload.
 
 import puppeteer from "puppeteer";
 import { dirname, resolve } from "node:path";
@@ -89,7 +88,7 @@ async function main() {
         );
         console.log("Service worker up. Extension id: " + extensionId);
 
-        // Load popup and sidebar via chrome-extension:// URL.
+        // Load popup via chrome-extension:// URL.
         const popup = await browser.newPage();
         wire(popup, "popup");
         await popup.goto(`chrome-extension://${extensionId}/popup.html`, {
@@ -98,15 +97,6 @@ async function main() {
         });
         await new Promise((r) => setTimeout(r, 500));
         await popup.close();
-
-        const sidebar = await browser.newPage();
-        wire(sidebar, "sidebar");
-        await sidebar.goto(`chrome-extension://${extensionId}/sidebar.html`, {
-          waitUntil: "load",
-          timeout: 10_000,
-        });
-        await new Promise((r) => setTimeout(r, 500));
-        await sidebar.close();
 
         const onboarding = await browser.newPage();
         wire(onboarding, "onboarding");
@@ -126,7 +116,7 @@ async function main() {
     console.error(`\nChromium load smoke test: ${failures.length} error(s). See above.\n`);
     process.exit(1);
   }
-  console.log("Chromium load smoke test OK — service worker + popup + sidebar + onboarding loaded cleanly.");
+  console.log("Chromium load smoke test OK — service worker + popup + onboarding loaded cleanly.");
 }
 
 main().catch((e) => {

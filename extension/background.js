@@ -1,7 +1,7 @@
 // @ts-check
 // Bonsai background service worker (MV3, module).
 // - Catches the OAuth redirect to <ext-id>.chromiumapp.org and stores the user.
-// - Routes messages between content script / popup / sidebar.
+// - Routes messages between content script / popup.
 // - Sends captures to the backend (/posts) for persistence when signed in.
 
 export {}; // tell TS this file is a module, so top-level decls don't clash
@@ -26,7 +26,6 @@ async function getConfig() {
 
 // ---------------------------------------------------------------------------
 // Install hooks:
-//   * Side panel default: toolbar click opens the popup, not the sidebar.
 //   * Fresh install only: open the onboarding tab. Users rarely pin the
 //     extension, so we cannot rely on the popup for first-run setup.
 // ---------------------------------------------------------------------------
@@ -39,11 +38,6 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 chrome.runtime.onInstalled.addListener(async (details) => {
-  try {
-    await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
-  } catch (e) {
-    console.warn("sidePanel.setPanelBehavior failed", e);
-  }
   if (details.reason === "install") {
     try {
       await chrome.tabs.create({ url: chrome.runtime.getURL("onboarding.html") });
@@ -169,8 +163,7 @@ async function signOut() {
   }
   // Wipe everything — user key, captures, config overrides, onboarding flags.
   // Sign-out is a clean-slate action; leaving captures behind leaks history
-  // across accounts on the same install and confuses the sidebar when the
-  // next user signs in.
+  // across accounts on the same install.
   await chrome.storage.local.clear();
   return { ok: true };
 }
@@ -220,9 +213,9 @@ async function trySendCapture(capture) {
 
 // Pull every post this user previously submitted and merge into local storage.
 // Runs after sign-in and on service-worker startup so a fresh install (or new
-// device) rehydrates the teaching-progress bar and sidebar instead of
-// restarting the count from zero. Local wins on conflict: if the user rated
-// the same post twice offline, their most recent local decision stays.
+// device) rehydrates the teaching-progress bar instead of restarting the
+// count from zero. Local wins on conflict: if the user rated the same post
+// twice offline, their most recent local decision stays.
 async function hydrateFromBackend() {
   const [cfg, { [USER_KEY]: userRaw }, { [STORAGE_KEY]: capRaw }] = await Promise.all([
     getConfig(),
