@@ -62,14 +62,7 @@
     const timeEl = article.querySelector("time");
     const tweetedAt = timeEl ? timeEl.getAttribute("datetime") : null;
 
-    const hasImage = Boolean(article.querySelector('[data-testid="tweetPhoto"]'));
-    const hasVideo = Boolean(
-      article.querySelector('[data-testid="videoPlayer"], video, [data-testid="previewInterstitial"]'),
-    );
-    /** @type {string[]} */
-    const mediaTypes = [];
-    if (hasImage) mediaTypes.push("image");
-    if (hasVideo) mediaTypes.push("video");
+    const mediaTypes = detectMedia(article);
 
     return {
       postId,
@@ -83,6 +76,34 @@
       capturedAt: new Date().toISOString(),
       decision: null,
     };
+  }
+
+  // Media detection is called twice: once at article attach time, and again at
+  // rating time. X lazy-loads the <video> player — at attach time only the
+  // poster <img> is mounted (which matches tweetPhoto), so an early read tags
+  // a video post as an image. Re-reading at click time catches the final DOM.
+  // Video is preferred when both poster and player are present.
+  /**
+   * @param {HTMLElement} article
+   * @returns {string[]}
+   */
+  function detectMedia(article) {
+    const hasVideo = Boolean(
+      article.querySelector(
+        [
+          '[data-testid="videoPlayer"]',
+          '[data-testid="videoComponent"]',
+          '[data-testid="previewInterstitial"]',
+          'video',
+          'div[aria-label="Embedded video"]',
+        ].join(","),
+      ),
+    );
+    if (hasVideo) return ["video"];
+    const hasImage = Boolean(
+      article.querySelector('[data-testid="tweetPhoto"], img[src*="pbs.twimg.com/media"]'),
+    );
+    return hasImage ? ["image"] : [];
   }
 
   // --------------------------------------------------------------------------
@@ -209,6 +230,11 @@
       ev.stopPropagation();
       if (article.dataset.bonsaiState === decision) return;
       paint(decision);
+      // Re-detect media: X lazy-loads the video player after attach, so the
+      // original payload can miss video entirely or mislabel it as image.
+      const freshTypes = detectMedia(article);
+      payload.mediaTypes = freshTypes;
+      payload.hasMedia = freshTypes.length > 0;
       persistDecision(payload, decision);
     }
 
