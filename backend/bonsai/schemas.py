@@ -35,6 +35,10 @@ class PostIn(BaseModel):
     reposted_by: str | None = Field(default=None, alias="repostedBy")
     # Set when the article is a quote tweet.
     quoted: QuotedPost | None = None
+    # pbs.twimg.com preview URL (video poster or first image) — stored as a
+    # link, not bytes, so we stay on Firestore's free tier and keep sanity
+    # checks a single click away.
+    thumbnail_url: str | None = Field(default=None, alias="thumbnailUrl", max_length=2048)
     captured_at: datetime | None = Field(default=None, alias="capturedAt")
     decided_at: datetime | None = Field(default=None, alias="decidedAt")
     decision: Decision | None = None
@@ -61,6 +65,7 @@ class PostRecord(BaseModel):
     media_types: list[str] = Field(default_factory=list, serialization_alias="mediaTypes")
     reposted_by: str | None = Field(default=None, serialization_alias="repostedBy")
     quoted: QuotedPost | None = None
+    thumbnail_url: str | None = Field(default=None, serialization_alias="thumbnailUrl")
     captured_at: datetime | None = Field(default=None, serialization_alias="capturedAt")
     decided_at: datetime | None = Field(default=None, serialization_alias="decidedAt")
     decision: Decision | None = None

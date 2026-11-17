@@ -35,6 +35,11 @@ interface BonsaiCapture {
   // Set when the article is a quote tweet: the outer authorName/content is
   // the quoter's commentary; `quoted` holds what they quoted.
   quoted: BonsaiQuotedPost | null;
+  // Best-effort preview image URL for the post's media (video poster or first
+  // image). Points at pbs.twimg.com — stored as a link so sanity checks can
+  // open it directly. Null when the article has no media or the poster/img
+  // hasn't hydrated yet.
+  thumbnailUrl: string | null;
   capturedAt: string;
   decision: "yes" | "no" | null;
   decidedAt?: string;

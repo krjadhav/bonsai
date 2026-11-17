@@ -62,6 +62,7 @@
     const tweetedAt = timeEl ? timeEl.getAttribute("datetime") : null;
 
     const mediaTypes = detectMedia(article);
+    const thumbnailUrl = detectThumbnail(article);
     const { repostedBy, quoted } = extractRepostContext(article);
 
     return {
@@ -75,6 +76,7 @@
       mediaTypes,
       repostedBy,
       quoted,
+      thumbnailUrl,
       capturedAt: new Date().toISOString(),
       decision: null,
     };
@@ -159,6 +161,31 @@
       article.querySelector('[data-testid="tweetPhoto"], img[src*="pbs.twimg.com/media"]'),
     );
     return hasImage ? ["image"] : [];
+  }
+
+  // Grab a preview image URL for the article's media. For videos X exposes it
+  // as the <video poster="…"> attr once the player hydrates; before that only
+  // a nested <img> inside the videoComponent carries it. For plain image posts
+  // the first tweetPhoto <img> is the preview. Returns null when nothing is
+  // mounted yet — caller re-reads at click time for the same lazy-hydration
+  // reason detectMedia already handles.
+  /**
+   * @param {HTMLElement} article
+   * @returns {string | null}
+   */
+  function detectThumbnail(article) {
+    const video = /** @type {HTMLVideoElement | null} */ (article.querySelector("video"));
+    const posterAttr = video?.getAttribute("poster") || "";
+    if (posterAttr) return posterAttr;
+    const videoImg = /** @type {HTMLImageElement | null} */ (
+      article.querySelector('[data-testid="videoComponent"] img, [data-testid="previewInterstitial"] img')
+    );
+    if (videoImg?.src) return videoImg.src;
+    const photoImg = /** @type {HTMLImageElement | null} */ (
+      article.querySelector('[data-testid="tweetPhoto"] img, img[src*="pbs.twimg.com/media"]')
+    );
+    if (photoImg?.src) return photoImg.src;
+    return null;
   }
 
   // --------------------------------------------------------------------------
@@ -287,9 +314,14 @@
       paint(decision);
       // Re-detect media: X lazy-loads the video player after attach, so the
       // original payload can miss video entirely or mislabel it as image.
+      // Same hydration race applies to the poster — re-read the thumbnail too
+      // so videos captured at click time get the pbs.twimg.com URL instead of
+      // the null that extractTweet saw at attach.
       const freshTypes = detectMedia(article);
       payload.mediaTypes = freshTypes;
       payload.hasMedia = freshTypes.length > 0;
+      const freshThumb = detectThumbnail(article);
+      if (freshThumb) payload.thumbnailUrl = freshThumb;
       persistDecision(payload, decision);
     }
 

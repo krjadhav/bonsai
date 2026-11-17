@@ -18,6 +18,7 @@ def test_post_in_accepts_camel_case_payload() -> None:
         "tweetedAt": "2026-11-01T12:00:00Z",
         "hasMedia": True,
         "mediaTypes": ["image"],
+        "thumbnailUrl": "https://pbs.twimg.com/amplify_video_thumb/123/img/abc.jpg",
         "capturedAt": "2026-11-01T12:05:00Z",
         "decision": "yes",
     }
@@ -26,6 +27,7 @@ def test_post_in_accepts_camel_case_payload() -> None:
     assert parsed.author_handle == "@jane"
     assert parsed.has_media is True
     assert parsed.media_types == ["image"]
+    assert parsed.thumbnail_url == "https://pbs.twimg.com/amplify_video_thumb/123/img/abc.jpg"
     assert parsed.decision == "yes"
     assert parsed.tweeted_at == datetime(2026, 11, 1, 12, 0, tzinfo=UTC)
 
@@ -35,3 +37,4 @@ def test_post_in_minimal_payload() -> None:
     assert parsed.post_id == "1"
     assert parsed.decision is None
     assert parsed.media_types == []
+    assert parsed.thumbnail_url is None
