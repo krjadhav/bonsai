@@ -15,9 +15,34 @@
   const ONBOARDED_KEY = "bonsaiOnboarded";
   const COACH_KEY = "bonsaiCoachSeen";
   const MAX_LOCAL = 500;
-  // Target per side the model needs before it has useful signal. Shown as the
-  // denominator on the progress bars; once both sides hit it the UI auto-hides.
+  // Each tier is PROGRESS_TARGET ratings. The bar always shows progress within
+  // the current tier (count mod PROGRESS_TARGET). After the last tier the bar
+  // stays full and the tier label pins at Diamond.
   const PROGRESS_TARGET = 50;
+  const TIERS = /** @type {const} */ ([
+    "Iron",
+    "Bronze",
+    "Silver",
+    "Gold",
+    "Platinum",
+    "Sapphire",
+    "Ruby",
+    "Emerald",
+    "Diamond",
+  ]);
+  const MAX_TIER_INDEX = TIERS.length - 1;
+
+  /**
+   * @param {number} count
+   * @returns {{ name: string, within: number }}
+   */
+  function tierFor(count) {
+    const raw = Math.floor(count / PROGRESS_TARGET);
+    const index = Math.min(raw, MAX_TIER_INDEX);
+    const within =
+      index === MAX_TIER_INDEX ? PROGRESS_TARGET : count - index * PROGRESS_TARGET;
+    return { name: TIERS[index], within };
+  }
 
   /** @type {Set<string>} */
   const seenThisSession = new Set();
@@ -432,6 +457,7 @@
         <span class="bonsai-progress__label">
           <svg class="bonsai-ico" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73V10z"/></svg>
           <span>More like this</span>
+          <span class="bonsai-progress__tier" id="bonsai-progress-yes-tier">${TIERS[0]}</span>
         </span>
         <span class="bonsai-progress__count" id="bonsai-progress-yes-count">0 / ${PROGRESS_TARGET}</span>
         <div class="bonsai-progress__bar"><div class="bonsai-progress__fill" id="bonsai-progress-yes-fill"></div></div>
@@ -440,12 +466,13 @@
         <span class="bonsai-progress__label">
           <svg class="bonsai-ico bonsai-ico--flip" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73V10z"/></svg>
           <span>Less like this</span>
+          <span class="bonsai-progress__tier" id="bonsai-progress-no-tier">${TIERS[0]}</span>
         </span>
         <span class="bonsai-progress__count" id="bonsai-progress-no-count">0 / ${PROGRESS_TARGET}</span>
         <div class="bonsai-progress__bar"><div class="bonsai-progress__fill" id="bonsai-progress-no-fill"></div></div>
       </div>
       <div class="bonsai-progress__done" id="bonsai-progress-done" hidden>
-        Bonsai has enough examples to start learning.
+        Diamond tier reached on both sides. Bonsai is fully trained.
       </div>
     `;
     document.body.appendChild(el);
@@ -461,22 +488,27 @@
       if (c.decision === "yes") yes++;
       else if (c.decision === "no") no++;
     }
-    const yesCapped = Math.min(yes, PROGRESS_TARGET);
-    const noCapped = Math.min(no, PROGRESS_TARGET);
-    const yesPct = (yesCapped / PROGRESS_TARGET) * 100;
-    const noPct = (noCapped / PROGRESS_TARGET) * 100;
+    const yesTier = tierFor(yes);
+    const noTier = tierFor(no);
+    const yesPct = (yesTier.within / PROGRESS_TARGET) * 100;
+    const noPct = (noTier.within / PROGRESS_TARGET) * 100;
 
     const yesCount = document.getElementById("bonsai-progress-yes-count");
     const noCount = document.getElementById("bonsai-progress-no-count");
     const yesFill = document.getElementById("bonsai-progress-yes-fill");
     const noFill = document.getElementById("bonsai-progress-no-fill");
+    const yesTierEl = document.getElementById("bonsai-progress-yes-tier");
+    const noTierEl = document.getElementById("bonsai-progress-no-tier");
     const done = document.getElementById("bonsai-progress-done");
-    if (yesCount) yesCount.textContent = `${yesCapped} / ${PROGRESS_TARGET}`;
-    if (noCount) noCount.textContent = `${noCapped} / ${PROGRESS_TARGET}`;
+    if (yesCount) yesCount.textContent = `${yesTier.within} / ${PROGRESS_TARGET}`;
+    if (noCount) noCount.textContent = `${noTier.within} / ${PROGRESS_TARGET}`;
     if (yesFill) yesFill.style.width = yesPct + "%";
     if (noFill) noFill.style.width = noPct + "%";
+    if (yesTierEl) yesTierEl.textContent = yesTier.name;
+    if (noTierEl) noTierEl.textContent = noTier.name;
 
-    const complete = yes >= PROGRESS_TARGET && no >= PROGRESS_TARGET;
+    const cap = TIERS.length * PROGRESS_TARGET;
+    const complete = yes >= cap && no >= cap;
     progressEl.classList.toggle("is-complete", complete);
     if (done) done.hidden = !complete;
   }
