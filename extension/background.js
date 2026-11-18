@@ -15,6 +15,13 @@ const CONFIG_KEY = "bonsaiConfig";
 // .local/postmortem-2026-11-17-token-expiry-data-loss.md for why.
 const PENDING_KEY = "bonsaiPending";
 const MAX_PENDING = 1000;
+// Pending DELETEs. When a user clicks Remove we drop the capture locally
+// right away and enqueue the postId here as a tombstone. drainPendingDeletes
+// fires DELETE /posts/<id>; on offline/5xx we keep retrying, on 401 we stop
+// and mark the token stale. The tombstone also prevents hydrateFromBackend
+// from resurrecting the record before the backend has caught up.
+const PENDING_DELETES_KEY = "bonsaiPendingDeletes";
+const MAX_PENDING_DELETES = 1000;
 // Google access tokens expire at 3600s. Schedule the silent prompt=none
 // reauth at 55 minutes so a fresh token is in hand before any POST / GET
 // has a chance to 401.
@@ -48,6 +55,10 @@ chrome.runtime.onStartup.addListener(() => {
   (async () => {
     await restoreAuthBadge();
     await scheduleSilentReauth();
+    // Drain deletes before hydrating — otherwise the GET /posts response
+    // would re-populate local storage with rows the user had already asked
+    // to remove, and they'd flicker back in until the next drain.
+    await drainPendingDeletes().catch((e) => console.warn("startup delete drain failed", e));
     hydrateFromBackend().catch((e) => console.warn("startup hydrate failed", e));
     drainPending().catch((e) => console.warn("startup drain failed", e));
   })();
@@ -66,6 +77,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   // here rather than in onStartup.
   await restoreAuthBadge();
   await scheduleSilentReauth();
+  drainPendingDeletes().catch((e) => console.warn("install delete drain failed", e));
   drainPending().catch((e) => console.warn("install drain failed", e));
 });
 
@@ -251,8 +263,13 @@ async function completeSignIn(token) {
   await chrome.storage.local.set({ [USER_KEY]: user });
   await setAuthBadge(false);
   await scheduleSilentReauth();
-  hydrateFromBackend().catch((e) => console.warn("post sign-in hydrate failed", e));
-  drainPending().catch((e) => console.warn("post sign-in drain failed", e));
+  // Drain deletes first so the subsequent hydrate doesn't resurrect ids
+  // the user already asked to tombstone while signed out.
+  (async () => {
+    await drainPendingDeletes().catch((e) => console.warn("post sign-in delete drain failed", e));
+    hydrateFromBackend().catch((e) => console.warn("post sign-in hydrate failed", e));
+    drainPending().catch((e) => console.warn("post sign-in drain failed", e));
+  })();
   return user;
 }
 
@@ -318,7 +335,7 @@ async function signOut() {
   // token. Capped at 5 s so sign-out stays snappy even if Cloud Run is cold.
   try {
     await Promise.race([
-      drainPending(),
+      Promise.all([drainPendingDeletes(), drainPending()]),
       new Promise((resolve) => setTimeout(resolve, 5000)),
     ]);
   } catch (e) {
@@ -465,16 +482,116 @@ async function trySendCapture(capture) {
   return drainPending();
 }
 
+// ---------------------------------------------------------------------------
+// Backend delete sync — mirrors the capture pipeline.
+// ---------------------------------------------------------------------------
+
+/**
+ * @param {BonsaiConfig} cfg
+ * @param {BonsaiUser | undefined} user
+ * @param {string} postId
+ */
+async function sendDelete(cfg, user, postId) {
+  if (!cfg.apiBaseUrl || !user?.token) return { skipped: true };
+  const url = `${cfg.apiBaseUrl.replace(/\/$/, "")}/posts/${encodeURIComponent(postId)}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: { Authorization: "Bearer " + user.token },
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    const err = /** @type {Error & { status?: number }} */ (
+      new Error(`DELETE /posts/${postId} ${res.status} ${txt}`)
+    );
+    err.status = res.status;
+    throw err;
+  }
+  return res.json().catch(() => ({ ok: true }));
+}
+
+let pendingDeleteWriteChain = Promise.resolve();
+
+/** @param {string} postId */
+async function enqueuePendingDelete(postId) {
+  pendingDeleteWriteChain = pendingDeleteWriteChain.then(async () => {
+    const { [PENDING_DELETES_KEY]: raw } = await chrome.storage.local.get(PENDING_DELETES_KEY);
+    const pending = /** @type {string[]} */ (raw || []);
+    if (!pending.includes(postId)) pending.push(postId);
+    while (pending.length > MAX_PENDING_DELETES) pending.shift();
+    await chrome.storage.local.set({ [PENDING_DELETES_KEY]: pending });
+  });
+  return pendingDeleteWriteChain;
+}
+
+let deleteDrainInFlight = /** @type {Promise<{ drained: number, remaining: number } | { skipped: true }> | null} */ (
+  null
+);
+
+async function drainPendingDeletes() {
+  if (deleteDrainInFlight) return deleteDrainInFlight;
+  deleteDrainInFlight = (async () => {
+    const [cfg, { [USER_KEY]: userRaw }, { [PENDING_DELETES_KEY]: raw }] = await Promise.all([
+      getConfig(),
+      chrome.storage.local.get(USER_KEY),
+      chrome.storage.local.get(PENDING_DELETES_KEY),
+    ]);
+    const user = /** @type {BonsaiUser | undefined} */ (userRaw);
+    const pending = /** @type {string[]} */ (raw || []);
+    if (!cfg.apiBaseUrl || !user?.token || user.stale || pending.length === 0) {
+      return { drained: 0, remaining: pending.length };
+    }
+    /** @type {string[]} */
+    const remaining = [];
+    let drained = 0;
+    for (let i = 0; i < pending.length; i++) {
+      const id = pending[i];
+      try {
+        await sendDelete(cfg, user, id);
+        drained++;
+      } catch (e) {
+        const err = /** @type {Error & { status?: number }} */ (e);
+        remaining.push(id);
+        if (err.status === 401) {
+          await markAuthStale();
+          for (let j = i + 1; j < pending.length; j++) remaining.push(pending[j]);
+          break;
+        }
+      }
+    }
+    await chrome.storage.local.set({ [PENDING_DELETES_KEY]: remaining });
+    return { drained, remaining: remaining.length };
+  })().finally(() => {
+    deleteDrainInFlight = null;
+  });
+  return deleteDrainInFlight;
+}
+
+/** @param {string | null | undefined} postId */
+async function trySendRemove(postId) {
+  if (!postId) return { skipped: true };
+  // Drop any still-queued POST for this id so we never ship the capture
+  // right after the user asked to delete it.
+  const { [PENDING_KEY]: raw } = await chrome.storage.local.get(PENDING_KEY);
+  const pending = /** @type {BonsaiCapture[]} */ (raw || []);
+  const filtered = pending.filter((c) => c.postId !== postId);
+  if (filtered.length !== pending.length) {
+    await chrome.storage.local.set({ [PENDING_KEY]: filtered });
+  }
+  await enqueuePendingDelete(postId);
+  return drainPendingDeletes();
+}
+
 // Pull every post this user previously submitted and merge into local storage.
 // Runs after sign-in and on service-worker startup so a fresh install (or new
 // device) rehydrates the teaching-progress bar instead of restarting the
 // count from zero. Local wins on conflict: if the user rated the same post
 // twice offline, their most recent local decision stays.
 async function hydrateFromBackend() {
-  const [cfg, { [USER_KEY]: userRaw }, { [STORAGE_KEY]: capRaw }] = await Promise.all([
+  const [cfg, { [USER_KEY]: userRaw }, { [STORAGE_KEY]: capRaw }, { [PENDING_DELETES_KEY]: tombsRaw }] = await Promise.all([
     getConfig(),
     chrome.storage.local.get(USER_KEY),
     chrome.storage.local.get(STORAGE_KEY),
+    chrome.storage.local.get(PENDING_DELETES_KEY),
   ]);
   const user = /** @type {BonsaiUser | undefined} */ (userRaw);
   if (!cfg.apiBaseUrl || !user?.token) return { skipped: true };
@@ -494,10 +611,13 @@ async function hydrateFromBackend() {
     console.warn("hydrateFromBackend failed", e);
     return { error: String(e) };
   }
+  // Tombstoned ids: user already asked to remove these, but the DELETE
+  // hasn't drained yet. Don't let the GET resurrect them.
+  const tombs = new Set(/** @type {string[]} */ (tombsRaw || []));
   const local = /** @type {BonsaiCapture[]} */ (capRaw || []);
   const byId = new Map();
-  for (const it of items) if (it.postId) byId.set(it.postId, it);
-  for (const it of local) if (it.postId) byId.set(it.postId, it); // local wins
+  for (const it of items) if (it.postId && !tombs.has(it.postId)) byId.set(it.postId, it);
+  for (const it of local) if (it.postId && !tombs.has(it.postId)) byId.set(it.postId, it); // local wins
   const merged = [...byId.values()].sort((a, b) => {
     const at = a.decidedAt || a.capturedAt || "";
     const bt = b.decidedAt || b.capturedAt || "";
@@ -548,6 +668,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           break;
         case "bonsai:decision":
           sendResponse(await trySendCapture(msg.payload));
+          break;
+        case "bonsai:removeDecision":
+          sendResponse(await trySendRemove(msg.postId));
           break;
         case "bonsai:syncAll":
           sendResponse(await syncAll());

@@ -286,9 +286,19 @@
     const store = await chrome.storage.local.get(STORAGE_KEY);
     const captures = /** @type {BonsaiCapture[]} */ (store[STORAGE_KEY] || []);
     const idx = captures.findIndex((c) => c.postId === postId);
-    if (idx === -1) return;
-    captures.splice(idx, 1);
-    await chrome.storage.local.set({ [STORAGE_KEY]: captures });
+    if (idx !== -1) {
+      captures.splice(idx, 1);
+      await chrome.storage.local.set({ [STORAGE_KEY]: captures });
+    }
+    // Even if the capture isn't in local storage (e.g. a device that never
+    // saw this row until the last hydrate), tell background to DELETE it in
+    // Firestore. background.js enqueues a tombstone so hydrate won't
+    // resurrect the row before the delete lands.
+    if (postId) {
+      chrome.runtime
+        .sendMessage({ type: "bonsai:removeDecision", postId })
+        .catch(() => {});
+    }
   }
 
   // --------------------------------------------------------------------------

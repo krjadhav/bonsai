@@ -1,8 +1,10 @@
 """FastAPI app entrypoint.
 
 Routes:
-  GET  /health         -> liveness check, no auth
-  POST /posts          -> upsert a single capture (auth required)
+  GET    /health             -> liveness check, no auth
+  POST   /posts              -> upsert a single capture (auth required)
+  GET    /posts              -> list this user's captures (auth required)
+  DELETE /posts/{post_id}    -> remove a single capture (auth required)
 
 Design notes:
   * One Firestore document per (user_sub, post_id). Upsert via set(merge=True)
@@ -35,7 +37,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.allowed_origins) or ["*"],
     allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -78,6 +80,25 @@ async def ingest_post(
         raise HTTPException(status_code=502, detail=f"firestore upsert failed: {exc}") from exc
 
     return PostOut(ok=True, post_id=payload.post_id, inserted=True)
+
+
+@app.delete("/posts/{post_id}", response_model=PostOut)
+async def delete_post(
+    post_id: str,
+    user: AuthUser = Depends(current_user),
+) -> PostOut:
+    """Delete this user's capture for `post_id`. Idempotent — missing doc
+    still returns ok so the extension can retry a queued tombstone without
+    special-casing 404."""
+    if not post_id or len(post_id) > 64:
+        raise HTTPException(status_code=400, detail="invalid post_id")
+    try:
+        ref = collection_ref().document(doc_id(user.sub, post_id))
+        ref.delete()
+    except Exception as exc:
+        log.exception("firestore delete failed for %s", post_id)
+        raise HTTPException(status_code=502, detail=f"firestore delete failed: {exc}") from exc
+    return PostOut(ok=True, post_id=post_id, inserted=False)
 
 
 @app.get("/posts", response_model=PostListOut)

@@ -1,6 +1,6 @@
 {
   "name": "bonsai-feed-filter",
-  "version": "0.8.32",
+  "version": "0.8.33",
   "private": true,
   "description": "Bonsai — self-improving feed filter chrome extension",
   "scripts": {
