@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // @ts-nocheck
+/* global chrome */
 // Launch a headed Chromium with the Bonsai extension loaded against a
 // persistent profile in .local/x-inspect-profile/, navigate to each URL
 // supplied on the command line, wait for the extension to attach its

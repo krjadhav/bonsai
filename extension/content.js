@@ -50,6 +50,34 @@
   let coachEl = null;
   /** @type {HTMLElement | null} */
   let progressEl = null;
+  /** @type {MutationObserver | null} */
+  let domObserver = null;
+
+  // When the extension is reloaded or updated, every already-injected content
+  // script has its `chrome` object detached — `chrome.storage` becomes
+  // undefined and every subsequent call throws "Cannot read properties of
+  // undefined (reading 'local')" from async callbacks the user can't see.
+  // Guard every chrome.* call, and tear down the MutationObserver on the
+  // first detected invalidation so we stop spamming errors as the SPA keeps
+  // mutating the feed.
+  function isExtAlive() {
+    try {
+      return typeof chrome !== "undefined" && !!chrome.runtime && !!chrome.runtime.id;
+    } catch {
+      return false;
+    }
+  }
+
+  function teardownOnInvalidation() {
+    if (domObserver) {
+      try {
+        domObserver.disconnect();
+      } catch {
+        // ignore
+      }
+      domObserver = null;
+    }
+  }
 
   // --------------------------------------------------------------------------
   // Extract tweet payload from an <article> node
@@ -345,39 +373,59 @@
    * @param {"yes" | "no"} decision
    */
   async function persistDecision(payload, decision) {
-    const store = await chrome.storage.local.get(STORAGE_KEY);
-    const captures = /** @type {BonsaiCapture[]} */ (store[STORAGE_KEY] || []);
-    const idx = captures.findIndex((c) => c.postId === payload.postId);
-    /** @type {BonsaiCapture} */
-    const entry = {
-      ...payload,
-      decision,
-      decidedAt: new Date().toISOString(),
-    };
-    if (idx === -1) captures.unshift(entry);
-    else captures[idx] = { ...captures[idx], ...entry };
-    if (captures.length > MAX_LOCAL) captures.length = MAX_LOCAL;
-    await chrome.storage.local.set({ [STORAGE_KEY]: captures });
-    chrome.runtime.sendMessage({ type: "bonsai:decision", payload: entry }).catch(() => {});
+    if (!isExtAlive()) {
+      teardownOnInvalidation();
+      return;
+    }
+    try {
+      const store = await chrome.storage.local.get(STORAGE_KEY);
+      const captures = /** @type {BonsaiCapture[]} */ (store[STORAGE_KEY] || []);
+      const idx = captures.findIndex((c) => c.postId === payload.postId);
+      /** @type {BonsaiCapture} */
+      const entry = {
+        ...payload,
+        decision,
+        decidedAt: new Date().toISOString(),
+      };
+      if (idx === -1) captures.unshift(entry);
+      else captures[idx] = { ...captures[idx], ...entry };
+      if (captures.length > MAX_LOCAL) captures.length = MAX_LOCAL;
+      await chrome.storage.local.set({ [STORAGE_KEY]: captures });
+      chrome.runtime
+        .sendMessage({ type: "bonsai:decision", payload: entry })
+        .catch(() => {});
+    } catch (e) {
+      if (!isExtAlive()) teardownOnInvalidation();
+      else console.warn("bonsai persistDecision failed", e);
+    }
   }
 
   /** @param {string | null} postId */
   async function removeDecision(postId) {
-    const store = await chrome.storage.local.get(STORAGE_KEY);
-    const captures = /** @type {BonsaiCapture[]} */ (store[STORAGE_KEY] || []);
-    const idx = captures.findIndex((c) => c.postId === postId);
-    if (idx !== -1) {
-      captures.splice(idx, 1);
-      await chrome.storage.local.set({ [STORAGE_KEY]: captures });
+    if (!isExtAlive()) {
+      teardownOnInvalidation();
+      return;
     }
-    // Even if the capture isn't in local storage (e.g. a device that never
-    // saw this row until the last hydrate), tell background to DELETE it in
-    // Firestore. background.js enqueues a tombstone so hydrate won't
-    // resurrect the row before the delete lands.
-    if (postId) {
-      chrome.runtime
-        .sendMessage({ type: "bonsai:removeDecision", postId })
-        .catch(() => {});
+    try {
+      const store = await chrome.storage.local.get(STORAGE_KEY);
+      const captures = /** @type {BonsaiCapture[]} */ (store[STORAGE_KEY] || []);
+      const idx = captures.findIndex((c) => c.postId === postId);
+      if (idx !== -1) {
+        captures.splice(idx, 1);
+        await chrome.storage.local.set({ [STORAGE_KEY]: captures });
+      }
+      // Even if the capture isn't in local storage (e.g. a device that never
+      // saw this row until the last hydrate), tell background to DELETE it in
+      // Firestore. background.js enqueues a tombstone so hydrate won't
+      // resurrect the row before the delete lands.
+      if (postId) {
+        chrome.runtime
+          .sendMessage({ type: "bonsai:removeDecision", postId })
+          .catch(() => {});
+      }
+    } catch (e) {
+      if (!isExtAlive()) teardownOnInvalidation();
+      else console.warn("bonsai removeDecision failed", e);
     }
   }
 
@@ -536,10 +584,19 @@
   // haven't dismissed it. Clears itself on first rating or explicit close.
   // --------------------------------------------------------------------------
   async function maybeShowCoach() {
-    const { [ONBOARDED_KEY]: onboarded, [COACH_KEY]: seen } =
-      await chrome.storage.local.get([ONBOARDED_KEY, COACH_KEY]);
-    if (!onboarded || seen) return;
-    mountCoach();
+    if (!isExtAlive()) {
+      teardownOnInvalidation();
+      return;
+    }
+    try {
+      const { [ONBOARDED_KEY]: onboarded, [COACH_KEY]: seen } =
+        await chrome.storage.local.get([ONBOARDED_KEY, COACH_KEY]);
+      if (!onboarded || seen) return;
+      mountCoach();
+    } catch (e) {
+      if (!isExtAlive()) teardownOnInvalidation();
+      else console.warn("bonsai maybeShowCoach failed", e);
+    }
   }
 
   function mountCoach() {
@@ -572,7 +629,15 @@
     }
     const existing = document.getElementById("bonsai-coach");
     if (existing) existing.remove();
-    chrome.storage.local.set({ [COACH_KEY]: true }).catch(() => {});
+    if (!isExtAlive()) {
+      teardownOnInvalidation();
+      return;
+    }
+    try {
+      chrome.storage.local.set({ [COACH_KEY]: true }).catch(() => {});
+    } catch {
+      teardownOnInvalidation();
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -649,9 +714,18 @@
   }
 
   async function refreshProgress() {
-    const { [STORAGE_KEY]: raw } = await chrome.storage.local.get(STORAGE_KEY);
-    const captures = /** @type {BonsaiCapture[]} */ (raw || []);
-    paintProgress(captures);
+    if (!isExtAlive()) {
+      teardownOnInvalidation();
+      return;
+    }
+    try {
+      const { [STORAGE_KEY]: raw } = await chrome.storage.local.get(STORAGE_KEY);
+      const captures = /** @type {BonsaiCapture[]} */ (raw || []);
+      paintProgress(captures);
+    } catch (e) {
+      if (!isExtAlive()) teardownOnInvalidation();
+      else console.warn("bonsai refreshProgress failed", e);
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -664,7 +738,11 @@
     );
   }
 
-  const observer = new MutationObserver((muts) => {
+  domObserver = new MutationObserver((muts) => {
+    if (!isExtAlive()) {
+      teardownOnInvalidation();
+      return;
+    }
     for (const m of muts) {
       m.addedNodes.forEach((n) => {
         if (n.nodeType !== 1) return;
@@ -680,9 +758,10 @@
 
   function boot() {
     scan(document);
-    observer.observe(document.body, { childList: true, subtree: true });
+    if (domObserver) domObserver.observe(document.body, { childList: true, subtree: true });
     mountProgress();
     refreshProgress();
+    if (!isExtAlive()) return;
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== "local") return;
       if (changes[STORAGE_KEY]) {
