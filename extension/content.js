@@ -85,6 +85,12 @@
       const parts = [content, headline, articleUrl].filter(Boolean);
       content = parts.join("\n");
     }
+    // When the outer tweet is an X Article (long-form) or otherwise has no
+    // inline text, fall back to the status permalink so the capture still
+    // carries a pointer to the source the user can open.
+    if (!content && href) {
+      content = new URL(href, "https://x.com").toString();
+    }
 
     const userEl = outerScope.querySelector('[data-testid="User-Name"]');
     /** @type {string | null} */
@@ -252,6 +258,26 @@
         const headline = readArticleHeadline(quoteWrapper);
         const parts = [content, headline, qArticleUrl].filter(Boolean);
         content = parts.join("\n");
+      }
+      // Fallback: when the quoted post is an X Article or an image-only
+      // card, tweetText is absent and no /i/article/ link exists either —
+      // X renders the preview as a card. Grab the card's heading and the
+      // quoted tweet's own /status/ permalink so the capture still points
+      // at the source the user can open.
+      if (!content) {
+        const heading = /** @type {HTMLElement | null} */ (
+          quoteWrapper.querySelector('[role="heading"], h2')
+        );
+        const headingText = heading ? heading.innerText.trim() : "";
+        if (headingText) content = headingText;
+      }
+      const qStatusLink = quoteWrapper.querySelector('a[href*="/status/"]');
+      const qStatusHref = qStatusLink?.getAttribute("href") || "";
+      if (qStatusHref) {
+        const url = new URL(qStatusHref, "https://x.com").toString();
+        if (!content.includes(url)) {
+          content = content ? `${content}\n${url}` : url;
+        }
       }
       quoted = { authorName: name, authorHandle: handle, content };
     }
