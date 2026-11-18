@@ -59,43 +59,49 @@
    * @returns {BonsaiCapture}
    */
   function extractTweet(article) {
-    const permalink = article.querySelector('a[href*="/status/"]');
+    // Scope outer-tweet reads so a quoted Article's URL / text can't leak
+    // into the outer capture. Quoted content is extracted separately in
+    // extractRepostContext using the same wrapper.
+    const outerScope = outerTweetScope(article);
+    const permalink = outerScope.querySelector('a[href*="/status/"]');
     const href = permalink?.getAttribute("href") || "";
     const match = href.match(/\/status\/(\d+)/);
     // X long-form Articles render a card linking to `/i/article/<id>`. When
     // the parent tweet has no /status/ anchor (some article-only surfaces),
     // fall back to the article id so attachControls still injects controls.
-    const articleUrl = detectArticleUrl(article);
+    const articleUrl = detectArticleUrl(outerScope);
     const articleIdMatch = articleUrl ? articleUrl.match(/\/i\/article\/(\d+)/) : null;
     const postId = match ? match[1] : articleIdMatch ? `article_${articleIdMatch[1]}` : null;
 
     const textEl = /** @type {HTMLElement | null} */ (
-      article.querySelector('[data-testid="tweetText"]')
+      outerScope.querySelector('[data-testid="tweetText"]')
     );
     let content = textEl ? textEl.innerText.trim() : "";
-    // Article cards don't carry their body in tweetText — fall back to the
-    // card's headline so the capture has at least a title alongside the URL.
-    if (!content && articleUrl) content = readArticleHeadline(article) || "";
+    // Article cards don't carry their body in tweetText — fold the headline
+    // and viewer URL into content so the capture carries a pointer to the
+    // source without needing a separate schema field.
+    if (articleUrl) {
+      const headline = readArticleHeadline(outerScope);
+      const parts = [content, headline, articleUrl].filter(Boolean);
+      content = parts.join("\n");
+    }
 
-    const userEl = article.querySelector('[data-testid="User-Name"]');
+    const userEl = outerScope.querySelector('[data-testid="User-Name"]');
     /** @type {string | null} */
     let authorName = null;
     /** @type {string | null} */
     let authorHandle = null;
     if (userEl) {
-      const spans = userEl.querySelectorAll("span");
-      for (const s of spans) {
-        const t = /** @type {HTMLElement} */ (s).innerText.trim();
-        if (!authorName && t && !t.startsWith("@") && !t.includes("·")) authorName = t;
-        if (!authorHandle && t.startsWith("@")) authorHandle = t;
-      }
+      const { name, handle } = readUserBlock(userEl);
+      authorName = name;
+      authorHandle = handle;
     }
 
-    const timeEl = article.querySelector("time");
+    const timeEl = outerScope.querySelector("time");
     const tweetedAt = timeEl ? timeEl.getAttribute("datetime") : null;
 
-    const mediaTypes = detectMedia(article);
-    const thumbnailUrl = detectThumbnail(article);
+    const mediaTypes = detectMedia(outerScope);
+    const thumbnailUrl = detectThumbnail(outerScope);
     const { repostedBy, quoted } = extractRepostContext(article);
 
     return {
@@ -112,10 +118,49 @@
       repostedBy,
       quoted,
       thumbnailUrl,
-      articleUrl,
       capturedAt: new Date().toISOString(),
       decision: null,
     };
+  }
+
+  // Return a DOM subtree that holds the OUTER tweet only, excluding any
+  // nested quoted-tweet card. X wraps the embedded quoted tweet in a
+  // `div[role="link"]`; cloning the article and removing those wrappers
+  // lets us run normal selectors (tweetText, card.wrapper, etc.) against
+  // just the outer tweet without them picking up the inner ones.
+  /**
+   * @param {HTMLElement} article
+   * @returns {HTMLElement}
+   */
+  function outerTweetScope(article) {
+    const quoteWrapper = findQuoteWrapper(article);
+    if (!quoteWrapper) return article;
+    const clone = /** @type {HTMLElement} */ (article.cloneNode(true));
+    // Find the same wrapper inside the clone by walking the index path so
+    // we can strip it. querySelectorAll('[role="link"]') then nth-of-match
+    // is cheap and robust enough for the small subtrees X renders here.
+    const originals = Array.from(article.querySelectorAll('[role="link"]'));
+    const idx = originals.indexOf(quoteWrapper);
+    const clones = Array.from(clone.querySelectorAll('[role="link"]'));
+    if (idx >= 0 && clones[idx]) clones[idx].remove();
+    return clone;
+  }
+
+  // Locate the DOM subtree that wraps the quoted tweet, if any. X renders
+  // the quoted card as a `div[role="link"][tabindex="0"]` with the nested
+  // User-Name inside — we anchor off the second User-Name so we tolerate
+  // DOM shuffles around card.wrapper / card.layoutLarge that happen when X
+  // ships minor UI updates.
+  /**
+   * @param {HTMLElement} article
+   * @returns {HTMLElement | null}
+   */
+  function findQuoteWrapper(article) {
+    const userNames = article.querySelectorAll('[data-testid="User-Name"]');
+    if (userNames.length < 2) return null;
+    const second = /** @type {HTMLElement} */ (userNames[1]);
+    const wrapper = second.closest('div[role="link"]');
+    return /** @type {HTMLElement | null} */ (wrapper);
   }
 
   // X long-form Article links point at `/i/article/<id>`. Return the first one
@@ -189,17 +234,26 @@
     }
     /** @type {BonsaiQuotedPost | null} */
     let quoted = null;
-    const userNames = article.querySelectorAll('[data-testid="User-Name"]');
-    if (userNames.length >= 2) {
-      const { name, handle } = readUserBlock(userNames[1]);
-      const tweetTexts = article.querySelectorAll('[data-testid="tweetText"]');
-      let content =
-        tweetTexts.length >= 2
-          ? /** @type {HTMLElement} */ (tweetTexts[1]).innerText.trim()
-          : "";
-      const articleUrl = detectArticleUrl(article);
-      if (!content && articleUrl) content = readArticleHeadline(article) || "";
-      quoted = { authorName: name, authorHandle: handle, content, articleUrl };
+    const quoteWrapper = findQuoteWrapper(article);
+    if (quoteWrapper) {
+      const userBlock = quoteWrapper.querySelector('[data-testid="User-Name"]');
+      const { name, handle } = userBlock
+        ? readUserBlock(userBlock)
+        : { name: null, handle: null };
+      // Scope text extraction to the quote wrapper so the outer tweet's
+      // text can't leak in, and so image-only / article-style quoted posts
+      // still yield something useful via the heading / card URL fallback.
+      const qTextEl = /** @type {HTMLElement | null} */ (
+        quoteWrapper.querySelector('[data-testid="tweetText"]')
+      );
+      let content = qTextEl ? qTextEl.innerText.trim() : "";
+      const qArticleUrl = detectArticleUrl(quoteWrapper);
+      if (qArticleUrl) {
+        const headline = readArticleHeadline(quoteWrapper);
+        const parts = [content, headline, qArticleUrl].filter(Boolean);
+        content = parts.join("\n");
+      }
+      quoted = { authorName: name, authorHandle: handle, content };
     }
     return { repostedBy, quoted };
   }
@@ -396,10 +450,11 @@
       // Same hydration race applies to the poster — re-read the thumbnail too
       // so videos captured at click time get the pbs.twimg.com URL instead of
       // the null that extractTweet saw at attach.
-      const freshTypes = detectMedia(article);
+      const freshScope = outerTweetScope(article);
+      const freshTypes = detectMedia(freshScope);
       payload.mediaTypes = freshTypes;
       payload.hasMedia = freshTypes.length > 0;
-      const freshThumb = detectThumbnail(article);
+      const freshThumb = detectThumbnail(freshScope);
       if (freshThumb) payload.thumbnailUrl = freshThumb;
       persistDecision(payload, decision);
     }
