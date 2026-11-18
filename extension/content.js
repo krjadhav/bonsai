@@ -62,12 +62,20 @@
     const permalink = article.querySelector('a[href*="/status/"]');
     const href = permalink?.getAttribute("href") || "";
     const match = href.match(/\/status\/(\d+)/);
-    const postId = match ? match[1] : null;
+    // X long-form Articles render a card linking to `/i/article/<id>`. When
+    // the parent tweet has no /status/ anchor (some article-only surfaces),
+    // fall back to the article id so attachControls still injects controls.
+    const articleUrl = detectArticleUrl(article);
+    const articleIdMatch = articleUrl ? articleUrl.match(/\/i\/article\/(\d+)/) : null;
+    const postId = match ? match[1] : articleIdMatch ? `article_${articleIdMatch[1]}` : null;
 
     const textEl = /** @type {HTMLElement | null} */ (
       article.querySelector('[data-testid="tweetText"]')
     );
-    const content = textEl ? textEl.innerText.trim() : "";
+    let content = textEl ? textEl.innerText.trim() : "";
+    // Article cards don't carry their body in tweetText — fall back to the
+    // card's headline so the capture has at least a title alongside the URL.
+    if (!content && articleUrl) content = readArticleHeadline(article) || "";
 
     const userEl = article.querySelector('[data-testid="User-Name"]');
     /** @type {string | null} */
@@ -92,7 +100,9 @@
 
     return {
       postId,
-      permalink: href ? new URL(href, "https://x.com").toString() : null,
+      permalink: href
+        ? new URL(href, "https://x.com").toString()
+        : articleUrl || null,
       authorName,
       authorHandle,
       content,
@@ -102,9 +112,41 @@
       repostedBy,
       quoted,
       thumbnailUrl,
+      articleUrl,
       capturedAt: new Date().toISOString(),
       decision: null,
     };
+  }
+
+  // X long-form Article links point at `/i/article/<id>`. Return the first one
+  // inside this article as an absolute URL, or null when none is present.
+  /**
+   * @param {HTMLElement} article
+   * @returns {string | null}
+   */
+  function detectArticleUrl(article) {
+    const link = /** @type {HTMLAnchorElement | null} */ (
+      article.querySelector('a[href*="/i/article/"]')
+    );
+    const raw = link?.getAttribute("href");
+    if (!raw) return null;
+    return new URL(raw, "https://x.com").toString();
+  }
+
+  // Article cards expose their title in a heading inside the card wrapper. Fall
+  // back to any heading if the card testid isn't present.
+  /**
+   * @param {HTMLElement} article
+   * @returns {string | null}
+   */
+  function readArticleHeadline(article) {
+    const el = /** @type {HTMLElement | null} */ (
+      article.querySelector(
+        '[data-testid="card.wrapper"] [role="heading"], [data-testid="card.wrapper"] h2, [role="heading"][aria-level="1"], [role="heading"][aria-level="2"]',
+      )
+    );
+    const txt = el ? el.innerText.trim() : "";
+    return txt || null;
   }
 
   // Pull a display name + handle out of a [data-testid="User-Name"] subtree.
@@ -151,11 +193,13 @@
     if (userNames.length >= 2) {
       const { name, handle } = readUserBlock(userNames[1]);
       const tweetTexts = article.querySelectorAll('[data-testid="tweetText"]');
-      const content =
+      let content =
         tweetTexts.length >= 2
           ? /** @type {HTMLElement} */ (tweetTexts[1]).innerText.trim()
           : "";
-      quoted = { authorName: name, authorHandle: handle, content };
+      const articleUrl = detectArticleUrl(article);
+      if (!content && articleUrl) content = readArticleHeadline(article) || "";
+      quoted = { authorName: name, authorHandle: handle, content, articleUrl };
     }
     return { repostedBy, quoted };
   }

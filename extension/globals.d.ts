@@ -24,6 +24,9 @@ interface BonsaiQuotedPost {
   authorName: string | null;
   authorHandle: string | null;
   content: string;
+  // When the quoted post is an X long-form Article, this points at its
+  // `/i/article/<id>` viewer URL. Null for ordinary quote tweets.
+  articleUrl?: string | null;
 }
 
 interface BonsaiCapture {
@@ -48,6 +51,11 @@ interface BonsaiCapture {
   // open it directly. Null when the article has no media or the poster/img
   // hasn't hydrated yet.
   thumbnailUrl: string | null;
+  // Absolute URL of the X long-form Article viewer (`/i/article/<id>`) when
+  // the capture is an Article or embeds one. Null for ordinary tweets. Set
+  // on the outer capture even when the Article was reposted — ensures the
+  // link to the content survives even if the body text isn't inline.
+  articleUrl?: string | null;
   capturedAt: string;
   decision: "yes" | "no" | null;
   decidedAt?: string;
