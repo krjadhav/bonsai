@@ -109,8 +109,11 @@
     // and viewer URL into content so the capture carries a pointer to the
     // source without needing a separate schema field.
     if (articleUrl) {
-      const headline = readArticleHeadline(outerScope);
-      const parts = [content, headline, articleUrl].filter(Boolean);
+      const card = readArticleCard(outerScope);
+      const headline = card.title || readArticleHeadline(outerScope);
+      const summary =
+        headline && card.preview ? `${headline}: ${card.preview}` : headline;
+      const parts = [content, summary, articleUrl].filter(Boolean);
       content = parts.join("\n");
     }
     // When the outer tweet is an X Article (long-form) or otherwise has no
@@ -228,6 +231,26 @@
     return txt || null;
   }
 
+  // X long-form Article cards render title + preview as plain `div[dir="auto"]`
+  // nodes next to `[data-testid="article-cover-image"]` — no role="heading", no
+  // `<h2>`. Scope to the cover image's parent so sibling text (and nothing else)
+  // comes back; the "Article" chip uses `dir="ltr"` and is excluded naturally.
+  /**
+   * @param {HTMLElement} scope
+   * @returns {{ title: string | null, preview: string | null }}
+   */
+  function readArticleCard(scope) {
+    const cover = scope.querySelector('[data-testid="article-cover-image"]');
+    const container = cover?.parentElement;
+    if (!container) return { title: null, preview: null };
+    const textNodes = Array.from(container.querySelectorAll('div[dir="auto"]'));
+    const title =
+      /** @type {HTMLElement | undefined} */ (textNodes[0])?.innerText.trim() || null;
+    const preview =
+      /** @type {HTMLElement | undefined} */ (textNodes[1])?.innerText.trim() || null;
+    return { title, preview };
+  }
+
   // Pull a display name + handle out of a [data-testid="User-Name"] subtree.
   /**
    * @param {Element} userEl
@@ -282,16 +305,23 @@
       );
       let content = qTextEl ? qTextEl.innerText.trim() : "";
       const qArticleUrl = detectArticleUrl(quoteWrapper);
+      // X-Article quote cards expose title + preview as plain divs. Fold them
+      // into content whether or not an `/i/article/` anchor is present (quote
+      // cards for long-form Articles typically omit it), so `content` carries
+      // at least "Title: Preview..." for the reader.
+      const card = readArticleCard(quoteWrapper);
+      const articleSummary =
+        card.title && card.preview
+          ? `${card.title}: ${card.preview}`
+          : card.title || card.preview || "";
       if (qArticleUrl) {
-        const headline = readArticleHeadline(quoteWrapper);
-        const parts = [content, headline, qArticleUrl].filter(Boolean);
+        const parts = [content, articleSummary, qArticleUrl].filter(Boolean);
         content = parts.join("\n");
+      } else if (!content && articleSummary) {
+        content = articleSummary;
       }
-      // Fallback: when the quoted post is an X Article or an image-only
-      // card, tweetText is absent and no /i/article/ link exists either —
-      // X renders the preview as a card. Grab the card's heading and the
-      // quoted tweet's own /status/ permalink so the capture still points
-      // at the source the user can open.
+      // Last-ditch fallback: non-article cards sometimes expose a heading
+      // but no cover image. Keep the old selector for that shape.
       if (!content) {
         const heading = /** @type {HTMLElement | null} */ (
           quoteWrapper.querySelector('[role="heading"], h2')
