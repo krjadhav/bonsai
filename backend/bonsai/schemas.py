@@ -17,6 +17,11 @@ class QuotedPost(BaseModel):
     author_name: str | None = Field(default=None, alias="authorName")
     author_handle: str | None = Field(default=None, alias="authorHandle")
     content: str | None = None
+    # X long-form Article viewer URL (`/i/article/<id>`) when the quoted
+    # post is an Article rather than an ordinary tweet.
+    article_url: str | None = Field(
+        default=None, alias="articleUrl", serialization_alias="articleUrl", max_length=2048
+    )
 
     model_config = {"populate_by_name": True}
 
@@ -39,6 +44,9 @@ class PostIn(BaseModel):
     # link, not bytes, so we stay on Firestore's free tier and keep sanity
     # checks a single click away.
     thumbnail_url: str | None = Field(default=None, alias="thumbnailUrl", max_length=2048)
+    # X long-form Article viewer URL when the capture is or embeds an
+    # Article; set alongside quoted.articleUrl when the Article was reposted.
+    article_url: str | None = Field(default=None, alias="articleUrl", max_length=2048)
     captured_at: datetime | None = Field(default=None, alias="capturedAt")
     decided_at: datetime | None = Field(default=None, alias="decidedAt")
     decision: Decision | None = None
@@ -66,6 +74,7 @@ class PostRecord(BaseModel):
     reposted_by: str | None = Field(default=None, serialization_alias="repostedBy")
     quoted: QuotedPost | None = None
     thumbnail_url: str | None = Field(default=None, serialization_alias="thumbnailUrl")
+    article_url: str | None = Field(default=None, serialization_alias="articleUrl")
     captured_at: datetime | None = Field(default=None, serialization_alias="capturedAt")
     decided_at: datetime | None = Field(default=None, serialization_alias="decidedAt")
     decision: Decision | None = None
