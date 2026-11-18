@@ -91,8 +91,7 @@
     // into the outer capture. Quoted content is extracted separately in
     // extractRepostContext using the same wrapper.
     const outerScope = outerTweetScope(article);
-    const permalink = outerScope.querySelector('a[href*="/status/"]');
-    const href = permalink?.getAttribute("href") || "";
+    const href = pickCleanStatusHref(outerScope);
     const match = href.match(/\/status\/(\d+)/);
     // X long-form Articles render a card linking to `/i/article/<id>`. When
     // the parent tweet has no /status/ anchor (some article-only surfaces),
@@ -115,6 +114,16 @@
         headline && card.preview ? `${headline}: ${card.preview}` : headline;
       const parts = [content, summary, articleUrl].filter(Boolean);
       content = parts.join("\n");
+    }
+    // Full-view Article page: fold title + Draft.js body into content so the
+    // capture carries the actual article rather than just the permalink.
+    const readView = readArticleReadView(outerScope);
+    if (readView.title || readView.body) {
+      const summary =
+        readView.title && readView.body
+          ? `${readView.title}\n\n${readView.body}`
+          : readView.title || readView.body;
+      content = content ? `${content}\n${summary}` : /** @type {string} */ (summary);
     }
     // When the outer tweet is an X Article (long-form) or otherwise has no
     // inline text, fall back to the status permalink so the capture still
@@ -198,6 +207,50 @@
     const second = /** @type {HTMLElement} */ (userNames[1]);
     const wrapper = second.closest('div[role="link"]');
     return /** @type {HTMLElement | null} */ (wrapper);
+  }
+
+  // X renders multiple `a[href*="/status/"]` anchors inside a single tweet:
+  // the clean `/status/<id>` on the timestamp, plus sub-route variants like
+  // `/status/<id>/analytics`, `/status/<id>/photo/<n>`, `/status/<id>/quotes`.
+  // `querySelector` returns the first match in DOM order — on the Article
+  // full-view page that's the /analytics anchor. Prefer the clean form.
+  /**
+   * @param {HTMLElement} scope
+   * @returns {string}
+   */
+  function pickCleanStatusHref(scope) {
+    const anchors = Array.from(scope.querySelectorAll('a[href*="/status/"]'));
+    for (const a of anchors) {
+      const href = a.getAttribute("href") || "";
+      if (/\/status\/\d+(?:\?.*)?$/.test(href)) return href;
+    }
+    for (const a of anchors) {
+      const href = a.getAttribute("href") || "";
+      if (/\/status\/\d+/.test(href)) return href;
+    }
+    return "";
+  }
+
+  // Full-view Article page nests a `twitterArticleReadView` inside the outer
+  // tweet. Title sits in `twitter-article-title`; body text lives in a
+  // Draft.js container (`longformRichTextComponent`) — not in `tweetText`.
+  // Return both when present so the outer capture carries the actual article.
+  /**
+   * @param {HTMLElement} scope
+   * @returns {{ title: string | null, body: string | null }}
+   */
+  function readArticleReadView(scope) {
+    const readView = scope.querySelector('[data-testid="twitterArticleReadView"]');
+    if (!readView) return { title: null, body: null };
+    const titleEl = /** @type {HTMLElement | null} */ (
+      readView.querySelector('[data-testid="twitter-article-title"]')
+    );
+    const bodyEl = /** @type {HTMLElement | null} */ (
+      readView.querySelector('[data-testid="longformRichTextComponent"]')
+    );
+    const title = titleEl?.innerText.trim() || null;
+    const body = bodyEl?.innerText.trim() || null;
+    return { title, body };
   }
 
   // X long-form Article links point at `/i/article/<id>`. Return the first one
@@ -479,6 +532,12 @@
   /** @param {HTMLElement} article */
   function attachControls(article) {
     if (article.dataset[PROCESSED]) return;
+    // X nests a second `role="article"` inside the outer tweet on the
+    // full-view Article page (`data-testid="twitterArticleReadView"`). The
+    // inner article has no User-Name, no <time>, no tweetText — processing
+    // it would double-capture under the same post_id and overwrite the
+    // outer's good values with nulls. Skip it.
+    if (article.getAttribute("data-testid") === "twitterArticleReadView") return;
     article.dataset[PROCESSED] = "1";
 
     const payload = extractTweet(article);
