@@ -10,6 +10,14 @@ interface BonsaiUser {
   picture?: string;
   sub: string;
   token: string;
+  // Unix ms when the current access token was issued. Used to schedule
+  // silent prompt=none reauth before Google's ~60-minute expiry window.
+  tokenIssuedAt?: number;
+  // True when the backend most recently returned 401 for this token. The
+  // extension keeps the user record around (so captures stay associated with
+  // the right identity) but pauses sync and surfaces a re-sign-in CTA in the
+  // popup. Cleared on the next successful sign-in.
+  stale?: boolean;
 }
 
 interface BonsaiQuotedPost {

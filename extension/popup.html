@@ -18,6 +18,19 @@
     </button>
   </header>
 
+  <!-- Session expired: user previously signed in but the backend returned 401.
+       Shown instead of #home so the sync status is impossible to miss. -->
+  <section class="auth" id="stale" hidden>
+    <p class="lead stale__lead">
+      Your sign-in expired. Sign in again to keep your ratings saving.
+    </p>
+    <button id="reauthBtn" class="btn primary">
+      Sign in again
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><polyline points="7 7 17 7 17 17"/></svg>
+    </button>
+    <p class="stale__note" id="stalePendingNote" hidden></p>
+  </section>
+
   <!-- Setup gate: either not signed in, or signed in but hasn't finished the tour. -->
   <section class="auth" id="setup" hidden>
     <p class="lead" id="setupLead">

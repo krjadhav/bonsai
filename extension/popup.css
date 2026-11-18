@@ -107,3 +107,11 @@ section:last-of-type { border-bottom: none; }
 .email { color: var(--muted); font-size: 12px; }
 
 .home .btn + .btn { margin-top: 8px; }
+
+.stale__lead { color: var(--danger); }
+.stale__note {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
