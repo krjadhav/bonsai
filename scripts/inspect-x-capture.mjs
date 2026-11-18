@@ -69,9 +69,21 @@ async function main() {
       });
     }
 
+    // Poll the article count — X single-tweet SSR often lands without an
+    // `<article role="article">` element and promotes a `div` to it after
+    // client hydration. Report what we see every few seconds so we can
+    // tell "took a long time" apart from "never showed up".
+    for (let s = 0; s < 45; s += 5) {
+      const c = await page.locator('article[role="article"]').count();
+      const anyArt = await page.locator("article").count();
+      console.log(`t+${s}s article[role=article]=${c} any article=${anyArt}`);
+      if (c > 0) break;
+      await page.waitForTimeout(5000);
+    }
+
     // Wait for the bonsai thumbs to render — signals extractTweet ran.
     try {
-      await page.waitForSelector(".bonsai-thumb--yes", { timeout: 30_000 });
+      await page.waitForSelector(".bonsai-thumb--yes", { timeout: 15_000 });
     } catch {
       console.log("timed out waiting for .bonsai-thumb--yes");
       console.log("page url:", page.url());
@@ -85,8 +97,16 @@ async function main() {
           .evaluate((el) => el.outerHTML);
         console.log("article outerHTML (first 2000 chars):\n" + html.slice(0, 2000));
       } else {
-        const body = await page.locator("body").innerText().catch(() => "");
-        console.log("body text (first 500 chars):\n" + body.slice(0, 500));
+        const anyArts = await page.locator("article").count();
+        console.log("any <article> count:", anyArts);
+        for (let i = 0; i < anyArts; i++) {
+          const attrs = await page.locator("article").nth(i).evaluate((el) => {
+            const a = {};
+            for (const n of el.getAttributeNames()) a[n] = el.getAttribute(n);
+            return { attrs: a, childTestIds: Array.from(el.querySelectorAll("[data-testid]")).slice(0, 15).map(e => e.getAttribute("data-testid")) };
+          });
+          console.log(`article[${i}]:`, JSON.stringify(attrs));
+        }
       }
       await page.close();
       continue;
