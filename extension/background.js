@@ -9,6 +9,9 @@ export {}; // tell TS this file is a module, so top-level decls don't clash
 const STORAGE_KEY = "bonsaiCaptures";
 const USER_KEY = "bonsaiUser";
 const CONFIG_KEY = "bonsaiConfig";
+const FILTERS_KEY = "bonsaiFilters";
+/** @type {BonsaiFilters} */
+const DEFAULT_FILTERS = { hideAds: true, mutedWords: [] };
 // Captures that have not yet been accepted by the backend. Every decision
 // enqueues here first, then drains to /posts. Failed posts stay queued and
 // retry on the next successful auth / wake event. See
@@ -650,6 +653,65 @@ async function syncAll() {
 }
 
 // ---------------------------------------------------------------------------
+// Filter sync — batch classify a page of visible articles.
+// Stateless on the server. One request per debounced burst from the content
+// script. 401 marks auth stale; other errors are logged and swallowed so the
+// timeline stays unmodified rather than half-collapsing.
+// ---------------------------------------------------------------------------
+
+/** @returns {Promise<BonsaiFilters>} */
+async function getFilters() {
+  const { [FILTERS_KEY]: raw } = await chrome.storage.local.get(FILTERS_KEY);
+  const stored = /** @type {Partial<BonsaiFilters> | undefined} */ (raw);
+  return {
+    hideAds: typeof stored?.hideAds === "boolean" ? stored.hideAds : DEFAULT_FILTERS.hideAds,
+    mutedWords: Array.isArray(stored?.mutedWords)
+      ? stored.mutedWords.filter((w) => typeof w === "string" && w.trim().length > 0)
+      : [...DEFAULT_FILTERS.mutedWords],
+  };
+}
+
+/**
+ * @param {Array<{ postId: string, content?: string | null, authorName?: string | null, authorHandle?: string | null, isPromoted?: boolean }>} posts
+ * @returns {Promise<{ decisions: Array<{ postId: string, hide: boolean, reason?: string | null }> } | { skipped: true, reason: string }>}
+ */
+async function filterPosts(posts) {
+  if (!Array.isArray(posts) || posts.length === 0) {
+    return { decisions: [] };
+  }
+  const [cfg, { [USER_KEY]: userRaw }, filters] = await Promise.all([
+    getConfig(),
+    chrome.storage.local.get(USER_KEY),
+    getFilters(),
+  ]);
+  const user = /** @type {BonsaiUser | undefined} */ (userRaw);
+  if (!cfg.apiBaseUrl) return { skipped: true, reason: "no-api" };
+  if (!user?.token || user.stale) return { skipped: true, reason: "no-auth" };
+  try {
+    const res = await fetch(`${cfg.apiBaseUrl.replace(/\/$/, "")}/filter`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + user.token,
+      },
+      body: JSON.stringify({ posts, filters }),
+    });
+    if (res.status === 401) {
+      await markAuthStale();
+      return { skipped: true, reason: "stale-token" };
+    }
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`POST /filter ${res.status} ${txt}`);
+    }
+    return res.json();
+  } catch (e) {
+    console.warn("filterPosts failed", e);
+    return { skipped: true, reason: String(e) };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Message routing
 // ---------------------------------------------------------------------------
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -684,6 +746,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         case "bonsai:silentReauth":
           await silentReauth();
           sendResponse({ ok: true });
+          break;
+        case "bonsai:filter":
+          sendResponse(await filterPosts(msg.posts));
+          break;
+        case "bonsai:getFilters":
+          sendResponse(await getFilters());
           break;
         case "bonsai:getConfig":
           sendResponse(await getConfig());
