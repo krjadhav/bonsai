@@ -76,3 +76,42 @@ class PostRecord(BaseModel):
 class PostListOut(BaseModel):
     items: list[PostRecord]
     count: int
+
+
+class FilterCandidate(BaseModel):
+    """A single post the client wants a hide/show decision for.
+
+    Only carries the fields the server needs to evaluate rules. Media/thumbnail
+    are intentionally omitted — the filter is pure-text today."""
+
+    post_id: str = Field(alias="postId", min_length=1, max_length=64)
+    content: str | None = None
+    author_name: str | None = Field(default=None, alias="authorName")
+    author_handle: str | None = Field(default=None, alias="authorHandle")
+    is_promoted: bool = Field(default=False, alias="isPromoted")
+
+    model_config = {"populate_by_name": True}
+
+
+class FilterPrefs(BaseModel):
+    hide_ads: bool = Field(default=True, alias="hideAds")
+    muted_words: list[str] = Field(default_factory=list, alias="mutedWords", max_length=200)
+
+    model_config = {"populate_by_name": True}
+
+
+class FilterIn(BaseModel):
+    posts: list[FilterCandidate] = Field(max_length=100)
+    filters: FilterPrefs = Field(default_factory=FilterPrefs)
+
+
+class FilterDecision(BaseModel):
+    post_id: str = Field(serialization_alias="postId")
+    hide: bool
+    reason: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class FilterOut(BaseModel):
+    decisions: list[FilterDecision]
