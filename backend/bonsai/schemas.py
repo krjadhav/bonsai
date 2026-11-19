@@ -89,6 +89,10 @@ class FilterCandidate(BaseModel):
     author_name: str | None = Field(default=None, alias="authorName")
     author_handle: str | None = Field(default=None, alias="authorHandle")
     is_promoted: bool = Field(default=False, alias="isPromoted")
+    # X labels AI-generated posts with a "Made with AI" chip (independent
+    # of promoted status). Treated as an ad-adjacent signal server-side so
+    # the hide_ads toggle covers both.
+    is_made_with_ai: bool = Field(default=False, alias="isMadeWithAi")
 
     model_config = {"populate_by_name": True}
 
