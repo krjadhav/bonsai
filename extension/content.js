@@ -175,7 +175,7 @@
     const mediaTypes = detectMedia(outerScope);
     const thumbnailUrl = detectThumbnail(outerScope);
     const { repostedBy, quoted } = extractRepostContext(article);
-    const isPromoted = detectPromoted(article);
+    const flags = detectAdFlags(article);
 
     return {
       postId,
@@ -191,28 +191,70 @@
       repostedBy,
       quoted,
       thumbnailUrl,
-      isPromoted,
+      isPromoted: flags.promoted,
+      isMadeWithAi: flags.madeWithAi,
       capturedAt: new Date().toISOString(),
       decision: null,
     };
   }
 
-  // X labels promoted posts by placing the word "Ad" (or "Promoted") inside
-  // the same `socialContext` slot that otherwise carries "Reposted by …".
-  // Match on word boundaries so legitimate content containing the letters
-  // (e.g. "Adrien") doesn't false-positive. When the article has no
-  // socialContext element the post isn't promoted.
+  // X labels promoted posts in several shapes — none consistent across the
+  // product, hence the multi-signal approach. Also returns a separate flag
+  // for the "Made with AI" chip X adds to AI-generated posts.
+  //
+  // Promoted signals (any match):
+  //   1. `[data-testid="socialContext"]` starting with "Ad" / "Promoted"
+  //      (seen on quoted / retweet-style ads).
+  //   2. An outbound link carrying X's `twclid=` tracking param — present
+  //      on every promoted-card link, missing on organic quoted URLs.
+  //   3. `[data-testid="card-website-cta-bar"]` — only promoted cards show
+  //      this Sign-up / Learn-more pill.
+  //   4. A short `<span>Ad</span>` label outside tweetText / quoted scope.
+  //      Scoped lookup keeps "pl**ad**" / "r**ead**" from false-positiving.
+  //
+  // Made-with-AI signal: a `<span>Made with AI</span>` outside tweetText.
+  //
   /**
    * @param {HTMLElement} article
-   * @returns {boolean}
+   * @returns {{ promoted: boolean, madeWithAi: boolean }}
    */
-  function detectPromoted(article) {
+  function detectAdFlags(article) {
+    let promoted = false;
+    let madeWithAi = false;
+
     const ctx = /** @type {HTMLElement | null} */ (
       article.querySelector('[data-testid="socialContext"]')
     );
-    if (!ctx) return false;
-    const txt = (ctx.innerText || "").trim();
-    return /^(ad|promoted)\b/i.test(txt);
+    if (ctx && /^(ad|promoted)\b/i.test((ctx.innerText || "").trim())) {
+      promoted = true;
+    }
+    if (!promoted && article.querySelector('a[href*="twclid="]')) {
+      promoted = true;
+    }
+    if (!promoted && article.querySelector('[data-testid="card-website-cta-bar"]')) {
+      promoted = true;
+    }
+
+    // Walk the article once to catch exact-text labels. Skip spans inside
+    // tweetText, the quote wrapper, and the user-name block so we only flag
+    // X's own chrome labels rather than text the author typed.
+    const tweetText = article.querySelector('[data-testid="tweetText"]');
+    const quoteWrapper = findQuoteWrapper(article);
+    const userName = article.querySelector('[data-testid="User-Name"]');
+    const spans = article.getElementsByTagName("span");
+    for (let i = 0; i < spans.length; i++) {
+      const el = spans[i];
+      if (el.children.length !== 0) continue;
+      if (tweetText && tweetText.contains(el)) continue;
+      if (quoteWrapper && quoteWrapper.contains(el)) continue;
+      if (userName && userName.contains(el)) continue;
+      const txt = (el.textContent || "").trim();
+      if (!txt) continue;
+      if (!promoted && (txt === "Ad" || txt === "Promoted")) promoted = true;
+      if (!madeWithAi && txt === "Made with AI") madeWithAi = true;
+      if (promoted && madeWithAi) break;
+    }
+    return { promoted, madeWithAi };
   }
 
   // Return a DOM subtree that holds the OUTER tweet only, excluding any
@@ -745,13 +787,22 @@
     const posts = ids
       .map((id) => tracked.get(id))
       .filter(/** @returns {t is TrackedArticle} */ (t) => Boolean(t))
-      .map((t) => ({
-        postId: /** @type {string} */ (t.payload.postId),
-        content: t.payload.content,
-        authorName: t.payload.authorName,
-        authorHandle: t.payload.authorHandle,
-        isPromoted: Boolean(t.payload.isPromoted),
-      }));
+      .map((t) => {
+        // Re-detect ad flags right before sending — X hydrates the "Made
+        // with AI" chip and some promoted card shells after the article
+        // first mounts, so the attach-time read can be stale.
+        const fresh = detectAdFlags(t.article);
+        t.payload.isPromoted = fresh.promoted;
+        t.payload.isMadeWithAi = fresh.madeWithAi;
+        return {
+          postId: /** @type {string} */ (t.payload.postId),
+          content: t.payload.content,
+          authorName: t.payload.authorName,
+          authorHandle: t.payload.authorHandle,
+          isPromoted: fresh.promoted,
+          isMadeWithAi: fresh.madeWithAi,
+        };
+      });
     if (posts.length === 0) return;
     /** @type {{ decisions?: Array<{ postId: string, hide: boolean, reason?: string | null }>, skipped?: true }} */
     let res;
@@ -848,6 +899,7 @@
   function formatReason(reason) {
     if (!reason) return "";
     if (reason === "ad") return "Ad";
+    if (reason === "made-with-ai") return "Made with AI";
     if (reason.startsWith("muted:")) return `Muted: ${reason.slice("muted:".length)}`;
     return reason;
   }
