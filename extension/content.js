@@ -14,6 +14,11 @@
   const STORAGE_KEY = "bonsaiCaptures";
   const ONBOARDED_KEY = "bonsaiOnboarded";
   const COACH_KEY = "bonsaiCoachSeen";
+  const FILTERS_KEY = "bonsaiFilters";
+  // Debounce window for batched hide/show classification. The DOM observer
+  // fires attachControls many times per scroll — holding them briefly lets us
+  // ship one `bonsai:filter` request per burst instead of one per article.
+  const FILTER_DEBOUNCE_MS = 250;
   const MAX_LOCAL = 500;
   // Each tier is PROGRESS_TARGET ratings. The bar always shows progress within
   // the current tier (count mod PROGRESS_TARGET). After the last tier the bar
@@ -52,6 +57,27 @@
   let progressEl = null;
   /** @type {MutationObserver | null} */
   let domObserver = null;
+
+  // Per-postId record of every article we've attached controls to in this tab.
+  // Lets us apply hide/show decisions coming back from the filter endpoint
+  // without re-querying the DOM, and re-sweep the whole set when filter prefs
+  // change in the popup.
+  /**
+   * @typedef {Object} TrackedArticle
+   * @property {HTMLElement} article
+   * @property {HTMLElement} header
+   * @property {HTMLElement} footer
+   * @property {BonsaiCapture} payload
+   * @property {HTMLElement | null} hiddenBar
+   */
+  /** @type {Map<string, TrackedArticle>} */
+  const tracked = new Map();
+
+  // Pending ids waiting for the next debounced filter flush.
+  /** @type {Set<string>} */
+  const filterQueue = new Set();
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let filterTimer = null;
 
   // When the extension is reloaded or updated, every already-injected content
   // script has its `chrome` object detached — `chrome.storage` becomes
@@ -149,6 +175,7 @@
     const mediaTypes = detectMedia(outerScope);
     const thumbnailUrl = detectThumbnail(outerScope);
     const { repostedBy, quoted } = extractRepostContext(article);
+    const isPromoted = detectPromoted(article);
 
     return {
       postId,
@@ -164,9 +191,28 @@
       repostedBy,
       quoted,
       thumbnailUrl,
+      isPromoted,
       capturedAt: new Date().toISOString(),
       decision: null,
     };
+  }
+
+  // X labels promoted posts by placing the word "Ad" (or "Promoted") inside
+  // the same `socialContext` slot that otherwise carries "Reposted by …".
+  // Match on word boundaries so legitimate content containing the letters
+  // (e.g. "Adrien") doesn't false-positive. When the article has no
+  // socialContext element the post isn't promoted.
+  /**
+   * @param {HTMLElement} article
+   * @returns {boolean}
+   */
+  function detectPromoted(article) {
+    const ctx = /** @type {HTMLElement | null} */ (
+      article.querySelector('[data-testid="socialContext"]')
+    );
+    if (!ctx) return false;
+    const txt = (ctx.innerText || "").trim();
+    return /^(ad|promoted)\b/i.test(txt);
   }
 
   // Return a DOM subtree that holds the OUTER tweet only, excluding any
@@ -665,6 +711,154 @@
     }
 
     paint(null);
+
+    // Register for filter evaluation. Only posts with a stable postId can be
+    // collapsed by decision (we need it as the dedup key in the batch call).
+    if (payload.postId) {
+      tracked.set(payload.postId, { article, header, footer, payload, hiddenBar: null });
+      queueForFilter(payload.postId);
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Hide/show filter — batches visible articles to the backend, collapses
+  // any that come back with hide=true. Also respects live changes to filter
+  // prefs by re-sweeping all tracked articles on storage.onChanged.
+  // --------------------------------------------------------------------------
+  /** @param {string} postId */
+  function queueForFilter(postId) {
+    filterQueue.add(postId);
+    if (filterTimer !== null) return;
+    filterTimer = setTimeout(flushFilterQueue, FILTER_DEBOUNCE_MS);
+  }
+
+  async function flushFilterQueue() {
+    filterTimer = null;
+    if (!isExtAlive()) {
+      teardownOnInvalidation();
+      filterQueue.clear();
+      return;
+    }
+    if (filterQueue.size === 0) return;
+    const ids = Array.from(filterQueue);
+    filterQueue.clear();
+    const posts = ids
+      .map((id) => tracked.get(id))
+      .filter(/** @returns {t is TrackedArticle} */ (t) => Boolean(t))
+      .map((t) => ({
+        postId: /** @type {string} */ (t.payload.postId),
+        content: t.payload.content,
+        authorName: t.payload.authorName,
+        authorHandle: t.payload.authorHandle,
+        isPromoted: Boolean(t.payload.isPromoted),
+      }));
+    if (posts.length === 0) return;
+    /** @type {{ decisions?: Array<{ postId: string, hide: boolean, reason?: string | null }>, skipped?: true }} */
+    let res;
+    try {
+      res = await chrome.runtime.sendMessage({ type: "bonsai:filter", posts });
+    } catch (e) {
+      if (!isExtAlive()) teardownOnInvalidation();
+      else console.warn("bonsai filter message failed", e);
+      return;
+    }
+    if (!res || res.skipped || !Array.isArray(res.decisions)) return;
+    for (const d of res.decisions) {
+      applyDecision(d.postId, Boolean(d.hide), d.reason || null);
+    }
+  }
+
+  /**
+   * @param {string} postId
+   * @param {boolean} hide
+   * @param {string | null} reason
+   */
+  function applyDecision(postId, hide, reason) {
+    const t = tracked.get(postId);
+    if (!t) return;
+    if (hide) collapseArticle(t, reason);
+    else revealArticle(t);
+  }
+
+  /**
+   * @param {TrackedArticle} t
+   * @param {string | null} reason
+   */
+  function collapseArticle(t, reason) {
+    if (t.hiddenBar) {
+      updateHiddenBarReason(t.hiddenBar, reason);
+      return;
+    }
+    const bar = document.createElement("div");
+    bar.className = "bonsai-hidden";
+    bar.dataset.bonsaiHiddenReason = reason || "";
+    bar.innerHTML = `
+      <span class="bonsai-hidden__dot" aria-hidden="true"></span>
+      <span class="bonsai-hidden__label">Hidden by Bonsai</span>
+      <span class="bonsai-hidden__reason"></span>
+      <button type="button" class="bonsai-hidden__show">Show</button>
+    `;
+    const reasonEl = /** @type {HTMLElement} */ (bar.querySelector(".bonsai-hidden__reason"));
+    reasonEl.textContent = formatReason(reason);
+    const showBtn = /** @type {HTMLButtonElement} */ (bar.querySelector(".bonsai-hidden__show"));
+    showBtn.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      revealArticle(t);
+    });
+
+    // Insert the bar where the header lived so vertical rhythm stays steady.
+    const anchor = t.header.parentNode ? t.header : t.article;
+    const parent = anchor.parentNode;
+    if (parent) parent.insertBefore(bar, anchor);
+    t.hiddenBar = bar;
+
+    t.header.style.display = "none";
+    t.footer.style.display = "none";
+    t.article.style.display = "none";
+    t.article.dataset.bonsaiHidden = "1";
+  }
+
+  /** @param {TrackedArticle} t */
+  function revealArticle(t) {
+    if (!t.hiddenBar && !t.article.dataset.bonsaiHidden) return;
+    if (t.hiddenBar) {
+      t.hiddenBar.remove();
+      t.hiddenBar = null;
+    }
+    t.header.style.display = "";
+    t.footer.style.display = "";
+    t.article.style.display = "";
+    delete t.article.dataset.bonsaiHidden;
+  }
+
+  /**
+   * @param {HTMLElement} bar
+   * @param {string | null} reason
+   */
+  function updateHiddenBarReason(bar, reason) {
+    bar.dataset.bonsaiHiddenReason = reason || "";
+    const reasonEl = /** @type {HTMLElement | null} */ (
+      bar.querySelector(".bonsai-hidden__reason")
+    );
+    if (reasonEl) reasonEl.textContent = formatReason(reason);
+  }
+
+  /** @param {string | null} reason */
+  function formatReason(reason) {
+    if (!reason) return "";
+    if (reason === "ad") return "Ad";
+    if (reason.startsWith("muted:")) return `Muted: ${reason.slice("muted:".length)}`;
+    return reason;
+  }
+
+  // Re-sweep every tracked article when filter prefs change from the popup.
+  // Cheap — one batched call to the backend regardless of how many are on
+  // screen, same debounce as the scroll path.
+  function requeueAll() {
+    for (const id of tracked.keys()) filterQueue.add(id);
+    if (filterTimer !== null) return;
+    filterTimer = setTimeout(flushFilterQueue, FILTER_DEBOUNCE_MS);
   }
 
   // --------------------------------------------------------------------------
@@ -858,6 +1052,12 @@
           changes[STORAGE_KEY].newValue
         );
         paintProgress(next || []);
+      }
+      // Filter prefs or sign-in state changed — re-evaluate every tracked
+      // article. Prefs flip from the popup should take effect without a
+      // page reload; a fresh sign-in means the endpoint will now answer.
+      if (changes[FILTERS_KEY] || changes["bonsaiUser"]) {
+        requeueAll();
       }
     });
     maybeShowCoach();
