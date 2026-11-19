@@ -157,9 +157,13 @@ async def filter_posts(
     for post in payload.posts:
         hide = False
         reason: str | None = None
-        if payload.filters.hide_ads and post.is_promoted:
-            hide = True
-            reason = "ad"
+        if payload.filters.hide_ads:
+            if post.is_promoted:
+                hide = True
+                reason = "ad"
+            elif post.is_made_with_ai:
+                hide = True
+                reason = "made-with-ai"
         if not hide and muted_patterns:
             haystack = " ".join(
                 s for s in (post.content, post.author_name, post.author_handle) if s
