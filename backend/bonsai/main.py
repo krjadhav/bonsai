@@ -5,6 +5,7 @@ Routes:
   POST   /posts              -> upsert a single capture (auth required)
   GET    /posts              -> list this user's captures (auth required)
   DELETE /posts/{post_id}    -> remove a single capture (auth required)
+  POST   /filter             -> batch hide/show decisions (auth required)
 
 Design notes:
   * One Firestore document per (user_sub, post_id). Upsert via set(merge=True)
@@ -16,6 +17,7 @@ Design notes:
 from __future__ import annotations
 
 import logging
+import re
 from datetime import UTC, datetime
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -26,7 +28,15 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from .auth import AuthUser, current_user
 from .config import get_settings
 from .db import collection_ref, doc_id
-from .schemas import PostIn, PostListOut, PostOut, PostRecord
+from .schemas import (
+    FilterDecision,
+    FilterIn,
+    FilterOut,
+    PostIn,
+    PostListOut,
+    PostOut,
+    PostRecord,
+)
 
 log = logging.getLogger("bonsai")
 
@@ -116,6 +126,51 @@ async def list_posts(
         log.exception("firestore list failed for sub=%s", user.sub)
         raise HTTPException(status_code=502, detail=f"firestore list failed: {exc}") from exc
     return PostListOut(items=items, count=len(items))
+
+
+@app.post("/filter", response_model=FilterOut)
+async def filter_posts(
+    payload: FilterIn,
+    user: AuthUser = Depends(current_user),
+) -> FilterOut:
+    """Return a hide/show decision per post in `payload.posts`.
+
+    Stub mechanism — two deterministic rules:
+      1. hide_ads + is_promoted -> hide, reason="ad"
+      2. any muted word (case-insensitive substring) in content / author
+         fields -> hide, reason="muted:<word>"
+
+    Pure function of input. No Firestore reads/writes. Auth is still required
+    so the request carries a user identity: future personalization will key
+    off `user.sub` for per-user models without a schema change here.
+    """
+    _ = user  # reserved for personalized ranking; present today for auth.
+    # Word-boundary match so short terms ("ai") don't false-positive inside
+    # longer words ("plain"). Each muted word is compiled once per request.
+    muted_patterns: list[tuple[str, re.Pattern[str]]] = []
+    for raw in payload.filters.muted_words:
+        if not raw or not raw.strip():
+            continue
+        word = raw.strip()
+        muted_patterns.append((word.lower(), re.compile(rf"\b{re.escape(word)}\b", re.IGNORECASE)))
+    decisions: list[FilterDecision] = []
+    for post in payload.posts:
+        hide = False
+        reason: str | None = None
+        if payload.filters.hide_ads and post.is_promoted:
+            hide = True
+            reason = "ad"
+        if not hide and muted_patterns:
+            haystack = " ".join(
+                s for s in (post.content, post.author_name, post.author_handle) if s
+            )
+            for word, pattern in muted_patterns:
+                if pattern.search(haystack):
+                    hide = True
+                    reason = f"muted:{word}"
+                    break
+        decisions.append(FilterDecision(post_id=post.post_id, hide=hide, reason=reason))
+    return FilterOut(decisions=decisions)
 
 
 def _normalize(doc: dict) -> dict:
