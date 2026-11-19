@@ -801,47 +801,81 @@
     // Skip tweets with no classifiable text (media-only, pure link cards).
     const text = (t.payload.content || "").trim();
     if (!text) return;
-    const nameEl = findDisplayNameEl(t.article);
-    if (!nameEl) return;
+    const userEl = findUserNameBlock(t.article);
+    if (!userEl) return;
     const cached = detectCache.get(postId);
     if (cached) {
       paintAiTag(t, cached);
       return;
     }
     if (!t.aiTag) {
-      const tag = document.createElement("span");
+      const tag = createAiTag();
       tag.className = "bonsai-ai-tag bonsai-ai-tag--loading";
-      tag.textContent = "…";
+      tag.setAttribute("aria-label", "Bonsai: classifying");
       tag.title = "Bonsai: classifying";
-      nameEl.insertAdjacentElement("afterend", tag);
+      tag.appendChild(createSpinner());
+      mountAiTag(userEl, tag);
       t.aiTag = tag;
     }
     queueForDetect(postId);
   }
 
-  // The display name inside `[data-testid="User-Name"]` is the first non-link
-  // span whose text neither starts with `@` nor contains the middle-dot
-  // separator. Falls back to the User-Name element itself so the tag has
-  // somewhere to attach on exotic layouts (X Premium badges, affiliate tags).
+  // Full User-Name block (display name + badge + handle + · + time). The tag
+  // mounts at the end of this block so it sits to the right of the timestamp.
   /**
    * @param {HTMLElement} article
    * @returns {HTMLElement | null}
    */
-  function findDisplayNameEl(article) {
-    const userEl = article.querySelector('[data-testid="User-Name"]');
-    if (!userEl) return null;
-    const spans = userEl.querySelectorAll("span");
-    for (const s of spans) {
-      const span = /** @type {HTMLElement} */ (s);
-      const t = span.innerText.trim();
-      if (!t) continue;
-      if (t.startsWith("@")) continue;
-      if (t === "·") continue;
-      // Skip wrapper spans that contain nested link markup — we want a leaf.
-      if (span.querySelector("a, time")) continue;
-      return span;
+  function findUserNameBlock(article) {
+    return /** @type {HTMLElement | null} */ (
+      article.querySelector('[data-testid="User-Name"]')
+    );
+  }
+
+  function createAiTag() {
+    const tag = document.createElement("span");
+    tag.className = "bonsai-ai-tag";
+    return tag;
+  }
+
+  // Inline SVG spinner — rendered via CSS rotation to avoid a URL asset.
+  function createSpinner() {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "bonsai-ai-tag__spinner");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", "12");
+    circle.setAttribute("cy", "12");
+    circle.setAttribute("r", "9");
+    circle.setAttribute("fill", "none");
+    circle.setAttribute("stroke", "currentColor");
+    circle.setAttribute("stroke-width", "3");
+    circle.setAttribute("stroke-linecap", "round");
+    // Short arc — rotation sells the spin.
+    circle.setAttribute("stroke-dasharray", "14 60");
+    svg.appendChild(circle);
+    return svg;
+  }
+
+  // X wraps the User-Name content in nested flex containers. The last leaf
+  // flex row is where "· 8h" lives — appending the tag there keeps it on the
+  // same line to the right of the timestamp. Fall back to appending to the
+  // User-Name element itself on layouts where no deeper row exists.
+  /**
+   * @param {HTMLElement} userEl
+   * @param {HTMLElement} tag
+   */
+  function mountAiTag(userEl, tag) {
+    const rows = userEl.querySelectorAll("div");
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const row = /** @type {HTMLElement} */ (rows[i]);
+      if (row.querySelector("time")) {
+        row.appendChild(tag);
+        return;
+      }
     }
-    return /** @type {HTMLElement} */ (userEl);
+    userEl.appendChild(tag);
   }
 
   /**
@@ -849,18 +883,19 @@
    * @param {BonsaiDetectorResult} result
    */
   function paintAiTag(t, result) {
-    const nameEl = findDisplayNameEl(t.article);
-    if (!nameEl) return;
+    const userEl = findUserNameBlock(t.article);
+    if (!userEl) return;
     let tag = t.aiTag;
     if (!tag) {
-      tag = document.createElement("span");
-      nameEl.insertAdjacentElement("afterend", tag);
+      tag = createAiTag();
+      mountAiTag(userEl, tag);
       t.aiTag = tag;
     }
     const isAi = /^ai$/i.test(result.label);
     const pct = Math.round((result.confidence || 0) * 100);
     tag.className = "bonsai-ai-tag " + (isAi ? "bonsai-ai-tag--ai" : "bonsai-ai-tag--human");
     tag.textContent = `${isAi ? "AI" : "Human"}: ${pct}%`;
+    tag.removeAttribute("aria-label");
     tag.title = `Bonsai detector (experimental) — ${result.label} ${pct}%`;
   }
 
