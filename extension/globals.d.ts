@@ -30,12 +30,23 @@ interface BonsaiQuotedPost {
   content: string;
 }
 
+interface BonsaiFilters {
+  // Collapse promoted / "Ad" posts in the timeline.
+  hideAds: boolean;
+  // Case-insensitive substrings. A match in content / author name / handle
+  // hides the post. Trimmed, empty entries ignored.
+  mutedWords: string[];
+}
+
 interface BonsaiCapture {
   postId: string | null;
   permalink: string | null;
   authorName: string | null;
   authorHandle: string | null;
   content: string;
+  // True when the capture carries X's "Ad" / promoted socialContext chip.
+  // Used by the hide/show filter; irrelevant to rating storage.
+  isPromoted?: boolean;
   tweetedAt: string | null;
   hasMedia: boolean;
   mediaTypes: string[];
