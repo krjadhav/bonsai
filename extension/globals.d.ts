@@ -47,6 +47,10 @@ interface BonsaiCapture {
   // True when the capture carries X's "Ad" / promoted socialContext chip.
   // Used by the hide/show filter; irrelevant to rating storage.
   isPromoted?: boolean;
+  // True when the article shows X's "Made with AI" label — a separate,
+  // post-level indicator unrelated to promotion. The server treats it under
+  // the same hideAds toggle but with its own reason string.
+  isMadeWithAi?: boolean;
   tweetedAt: string | null;
   hasMedia: boolean;
   mediaTypes: string[];
