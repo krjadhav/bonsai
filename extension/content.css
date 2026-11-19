@@ -133,6 +133,59 @@
 /* No outline on the <article> itself — X controls its layout. State tint
    lives on the header/footer siblings instead so we don't fight X's styles. */
 
+/* ------- Hidden-post placeholder bar ------- */
+/* Shown in place of an article the filter endpoint asked us to hide. Compact
+   row so a hidden slot doesn't eat the vertical space of a full tweet. */
+.bonsai-hidden {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  margin: 6px 0;
+  border: 1px dashed #2a3a2f;
+  border-radius: 10px;
+  background: rgba(24, 35, 25, 0.5);
+  color: #9ab2a1;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 12px;
+  box-sizing: border-box;
+  width: 100%;
+}
+.bonsai-hidden__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e8745a;
+  flex: none;
+}
+.bonsai-hidden__label {
+  color: #c5d3cb;
+  font-weight: 500;
+}
+.bonsai-hidden__reason {
+  color: #9ab2a1;
+  font-size: 11px;
+  letter-spacing: 0.2px;
+}
+.bonsai-hidden__reason:empty { display: none; }
+.bonsai-hidden__show {
+  all: unset;
+  margin-left: auto;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid #2a3a2f;
+  background: transparent;
+  color: #c5d3cb;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.bonsai-hidden__show:hover {
+  background: rgba(78, 167, 109, 0.12);
+  border-color: #4ea76d;
+  color: #e9f3eb;
+}
+
 /* ------- First-visit coach overlay ------- */
 .bonsai-coach {
   position: fixed;
