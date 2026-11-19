@@ -334,3 +334,35 @@
   color: #4ea76d;
   text-align: center;
 }
+
+/* ------- Experimental AI-content tag ------- */
+.bonsai-ai-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.1px;
+  vertical-align: middle;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.bonsai-ai-tag--loading {
+  color: #8a9aa1;
+  border-color: rgba(138, 154, 161, 0.3);
+  background: rgba(138, 154, 161, 0.08);
+}
+.bonsai-ai-tag--ai {
+  color: #e8745a;
+  border-color: rgba(232, 116, 90, 0.5);
+  background: rgba(232, 116, 90, 0.12);
+}
+.bonsai-ai-tag--human {
+  color: #4ea76d;
+  border-color: rgba(78, 167, 109, 0.5);
+  background: rgba(78, 167, 109, 0.12);
+}

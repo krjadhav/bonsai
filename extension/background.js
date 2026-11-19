@@ -37,6 +37,10 @@ const DEFAULT_CONFIG = {
   // via chrome.storage.local { bonsaiConfig: { apiBaseUrl: "..." } } sent as
   // a bonsai:setConfig message — useful for local backend development.
   apiBaseUrl: "https://bonsai-api-1000316385691.asia-south1.run.app",
+  // Experimental AI-content detector. Points at the bonsai-detector Cloud
+  // Run service. Leave blank to short-circuit the detect handler.
+  detectorBaseUrl: "https://bonsai-detector-ihp3uocf7a-el.a.run.app",
+  experimentalAiDetector: false,
 };
 
 /** @returns {Promise<BonsaiConfig>} */
@@ -712,6 +716,59 @@ async function filterPosts(posts) {
 }
 
 // ---------------------------------------------------------------------------
+// Experimental: AI-content detector.
+// Batched POST to a separate Cloud Run service hosting a HF classifier. No
+// auth — the endpoint is open during experimental testing. Errors swallowed
+// so the timeline keeps rendering if the detector is cold or down.
+// ---------------------------------------------------------------------------
+
+/**
+ * @param {Array<{ postId: string, text: string }>} items
+ * @returns {Promise<{ results: BonsaiDetectorResult[] } | { skipped: true, reason: string }>}
+ */
+async function detectPosts(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { results: [] };
+  }
+  const cfg = await getConfig();
+  if (!cfg.experimentalAiDetector) return { skipped: true, reason: "disabled" };
+  if (!cfg.detectorBaseUrl) return { skipped: true, reason: "no-detector-url" };
+  // Cap payload size so a bug in the content script can't fire a 32 MB body.
+  const trimmed = items
+    .filter((i) => i && typeof i.postId === "string" && typeof i.text === "string")
+    .slice(0, 32)
+    .map((i) => ({ post_id: i.postId, text: i.text.slice(0, 8000) }));
+  if (trimmed.length === 0) return { results: [] };
+  try {
+    const res = await fetch(`${cfg.detectorBaseUrl.replace(/\/$/, "")}/detect`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: trimmed }),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`POST /detect ${res.status} ${txt}`);
+    }
+    const body = await res.json();
+    /** @type {BonsaiDetectorResult[]} */
+    const results = Array.isArray(body?.results)
+      ? body.results.map(
+          /** @param {{ post_id: string, label: string, confidence: number }} r */
+          (r) => ({
+            postId: String(r.post_id),
+            label: String(r.label),
+            confidence: Number(r.confidence) || 0,
+          }),
+        )
+      : [];
+    return { results };
+  } catch (e) {
+    console.warn("detectPosts failed", e);
+    return { skipped: true, reason: String(e) };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Message routing
 // ---------------------------------------------------------------------------
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -749,6 +806,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           break;
         case "bonsai:filter":
           sendResponse(await filterPosts(msg.posts));
+          break;
+        case "bonsai:detect":
+          sendResponse(await detectPosts(msg.items));
           break;
         case "bonsai:getFilters":
           sendResponse(await getFilters());

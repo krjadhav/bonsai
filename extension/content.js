@@ -69,6 +69,7 @@
    * @property {HTMLElement} footer
    * @property {BonsaiCapture} payload
    * @property {HTMLElement | null} hiddenBar
+   * @property {HTMLElement | null} aiTag
    */
   /** @type {Map<string, TrackedArticle>} */
   const tracked = new Map();
@@ -78,6 +79,21 @@
   const filterQueue = new Set();
   /** @type {ReturnType<typeof setTimeout> | null} */
   let filterTimer = null;
+
+  // Experimental AI-detector state. `aiEnabled` mirrors
+  // `bonsaiConfig.experimentalAiDetector`; false short-circuits every detector
+  // call. Results are cached per-tab so scrolling back doesn't re-classify.
+  // The debounce window is deliberately slow (600ms) because inference is
+  // ~300-700ms per tweet and we want to batch.
+  let aiEnabled = false;
+  const DETECT_DEBOUNCE_MS = 600;
+  const DETECT_BATCH = 16;
+  /** @type {Map<string, BonsaiDetectorResult>} */
+  const detectCache = new Map();
+  /** @type {Set<string>} */
+  const detectQueue = new Set();
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let detectTimer = null;
 
   // When the extension is reloaded or updated, every already-injected content
   // script has its `chrome` object detached — `chrome.storage` becomes
@@ -757,8 +773,170 @@
     // Register for filter evaluation. Only posts with a stable postId can be
     // collapsed by decision (we need it as the dedup key in the batch call).
     if (payload.postId) {
-      tracked.set(payload.postId, { article, header, footer, payload, hiddenBar: null });
+      tracked.set(payload.postId, {
+        article,
+        header,
+        footer,
+        payload,
+        hiddenBar: null,
+        aiTag: null,
+      });
       queueForFilter(payload.postId);
+      maybeAttachAiTag(payload.postId);
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Experimental AI-content tag. Renders next to the display name after the
+  // detector endpoint classifies the tweet text. Non-blocking — missing or
+  // slow responses leave the tweet unmarked. Cached in-memory per tab so a
+  // scroll back doesn't re-query.
+  // --------------------------------------------------------------------------
+
+  /** @param {string} postId */
+  function maybeAttachAiTag(postId) {
+    if (!aiEnabled) return;
+    const t = tracked.get(postId);
+    if (!t) return;
+    // Skip tweets with no classifiable text (media-only, pure link cards).
+    const text = (t.payload.content || "").trim();
+    if (!text) return;
+    const nameEl = findDisplayNameEl(t.article);
+    if (!nameEl) return;
+    const cached = detectCache.get(postId);
+    if (cached) {
+      paintAiTag(t, cached);
+      return;
+    }
+    if (!t.aiTag) {
+      const tag = document.createElement("span");
+      tag.className = "bonsai-ai-tag bonsai-ai-tag--loading";
+      tag.textContent = "…";
+      tag.title = "Bonsai: classifying";
+      nameEl.insertAdjacentElement("afterend", tag);
+      t.aiTag = tag;
+    }
+    queueForDetect(postId);
+  }
+
+  // The display name inside `[data-testid="User-Name"]` is the first non-link
+  // span whose text neither starts with `@` nor contains the middle-dot
+  // separator. Falls back to the User-Name element itself so the tag has
+  // somewhere to attach on exotic layouts (X Premium badges, affiliate tags).
+  /**
+   * @param {HTMLElement} article
+   * @returns {HTMLElement | null}
+   */
+  function findDisplayNameEl(article) {
+    const userEl = article.querySelector('[data-testid="User-Name"]');
+    if (!userEl) return null;
+    const spans = userEl.querySelectorAll("span");
+    for (const s of spans) {
+      const span = /** @type {HTMLElement} */ (s);
+      const t = span.innerText.trim();
+      if (!t) continue;
+      if (t.startsWith("@")) continue;
+      if (t === "·") continue;
+      // Skip wrapper spans that contain nested link markup — we want a leaf.
+      if (span.querySelector("a, time")) continue;
+      return span;
+    }
+    return /** @type {HTMLElement} */ (userEl);
+  }
+
+  /**
+   * @param {TrackedArticle} t
+   * @param {BonsaiDetectorResult} result
+   */
+  function paintAiTag(t, result) {
+    const nameEl = findDisplayNameEl(t.article);
+    if (!nameEl) return;
+    let tag = t.aiTag;
+    if (!tag) {
+      tag = document.createElement("span");
+      nameEl.insertAdjacentElement("afterend", tag);
+      t.aiTag = tag;
+    }
+    const isAi = /^ai$/i.test(result.label);
+    const pct = Math.round((result.confidence || 0) * 100);
+    tag.className = "bonsai-ai-tag " + (isAi ? "bonsai-ai-tag--ai" : "bonsai-ai-tag--human");
+    tag.textContent = `${isAi ? "AI" : "Human"}: ${pct}%`;
+    tag.title = `Bonsai detector (experimental) — ${result.label} ${pct}%`;
+  }
+
+  /** @param {string} postId */
+  function queueForDetect(postId) {
+    if (!aiEnabled) return;
+    detectQueue.add(postId);
+    if (detectTimer !== null) return;
+    detectTimer = setTimeout(flushDetectQueue, DETECT_DEBOUNCE_MS);
+  }
+
+  async function flushDetectQueue() {
+    detectTimer = null;
+    if (!isExtAlive()) {
+      teardownOnInvalidation();
+      detectQueue.clear();
+      return;
+    }
+    if (detectQueue.size === 0) return;
+    const ids = Array.from(detectQueue).slice(0, DETECT_BATCH);
+    for (const id of ids) detectQueue.delete(id);
+    const items = ids
+      .map((id) => tracked.get(id))
+      .filter(/** @returns {t is TrackedArticle} */ (t) => Boolean(t))
+      .map((t) => ({
+        postId: /** @type {string} */ (t.payload.postId),
+        text: (t.payload.content || "").trim(),
+      }))
+      .filter((i) => i.text);
+    if (items.length === 0) {
+      if (detectQueue.size > 0) {
+        detectTimer = setTimeout(flushDetectQueue, DETECT_DEBOUNCE_MS);
+      }
+      return;
+    }
+    /** @type {{ results?: BonsaiDetectorResult[], skipped?: true }} */
+    let res;
+    try {
+      res = await chrome.runtime.sendMessage({ type: "bonsai:detect", items });
+    } catch (e) {
+      if (!isExtAlive()) teardownOnInvalidation();
+      else console.warn("bonsai detect message failed", e);
+      return;
+    }
+    if (res && !res.skipped && Array.isArray(res.results)) {
+      for (const r of res.results) {
+        detectCache.set(r.postId, r);
+        const t = tracked.get(r.postId);
+        if (t) paintAiTag(t, r);
+      }
+    }
+    if (detectQueue.size > 0) {
+      detectTimer = setTimeout(flushDetectQueue, DETECT_DEBOUNCE_MS);
+    }
+  }
+
+  function requeueAllDetect() {
+    if (!aiEnabled) {
+      for (const t of tracked.values()) removeAiTag(t);
+      return;
+    }
+    for (const id of tracked.keys()) {
+      if (!detectCache.has(id)) maybeAttachAiTag(id);
+      else {
+        const cached = detectCache.get(id);
+        const t = tracked.get(id);
+        if (cached && t) paintAiTag(t, cached);
+      }
+    }
+  }
+
+  /** @param {TrackedArticle} t */
+  function removeAiTag(t) {
+    if (t.aiTag) {
+      t.aiTag.remove();
+      t.aiTag = null;
     }
   }
 
@@ -1091,11 +1269,27 @@
     }
   });
 
+  async function refreshAiEnabled() {
+    if (!isExtAlive()) return;
+    try {
+      /** @type {BonsaiConfig} */
+      const cfg = await chrome.runtime.sendMessage({ type: "bonsai:getConfig" });
+      const next = Boolean(cfg?.experimentalAiDetector) && Boolean(cfg?.detectorBaseUrl);
+      if (next === aiEnabled) return;
+      aiEnabled = next;
+      requeueAllDetect();
+    } catch (e) {
+      if (!isExtAlive()) teardownOnInvalidation();
+      else console.warn("bonsai refreshAiEnabled failed", e);
+    }
+  }
+
   function boot() {
     scan(document);
     if (domObserver) domObserver.observe(document.body, { childList: true, subtree: true });
     mountProgress();
     refreshProgress();
+    refreshAiEnabled();
     if (!isExtAlive()) return;
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== "local") return;
@@ -1110,6 +1304,11 @@
       // page reload; a fresh sign-in means the endpoint will now answer.
       if (changes[FILTERS_KEY] || changes["bonsaiUser"]) {
         requeueAll();
+      }
+      // Experimental AI-detector toggle or detector URL changed in the
+      // popup / background — flip tag rendering without a reload.
+      if (changes["bonsaiConfig"]) {
+        refreshAiEnabled();
       }
     });
     maybeShowCoach();

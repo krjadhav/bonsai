@@ -74,4 +74,17 @@ interface BonsaiCapture {
 
 interface BonsaiConfig {
   apiBaseUrl: string;
+  // Separate Cloud Run service hosting the experimental AI-content detector.
+  // Empty string disables detection even if `experimentalAiDetector` is true.
+  detectorBaseUrl: string;
+  // Experimental: tag each visible tweet with AI/Human + confidence next to
+  // the display name. Off by default. Cold-start of the detector service
+  // is tolerated — tags appear asynchronously as responses arrive.
+  experimentalAiDetector: boolean;
+}
+
+interface BonsaiDetectorResult {
+  postId: string;
+  label: string;
+  confidence: number;
 }

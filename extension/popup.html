@@ -69,6 +69,17 @@
           autocomplete="off" />
         <p class="filters__hint">Posts matching any word in content, name, or handle get hidden.</p>
       </div>
+      <div class="filters__row">
+        <label class="toggle" for="aiDetectorToggle">
+          <span>AI content detector <small style="opacity:0.6">(experimental)</small></span>
+          <input type="checkbox" id="aiDetectorToggle" />
+          <span class="toggle__switch" aria-hidden="true"></span>
+        </label>
+      </div>
+      <p class="filters__hint" id="aiDetectorHint" hidden>
+        Tags each tweet with AI / Human confidence next to the display name.
+        First response per browser session is slow while the detector warms.
+      </p>
     </div>
 
     <button id="openXBtn" class="btn primary">

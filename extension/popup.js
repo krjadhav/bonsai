@@ -63,7 +63,26 @@
       }
     }
     await refreshFilters();
+    await refreshAiToggle();
     showSection("home");
+  }
+
+  async function refreshAiToggle() {
+    /** @type {BonsaiConfig} */
+    const cfg = await chrome.runtime.sendMessage({ type: "bonsai:getConfig" });
+    const toggle = /** @type {HTMLInputElement} */ ($("aiDetectorToggle"));
+    toggle.checked = Boolean(cfg?.experimentalAiDetector);
+    toggle.disabled = !cfg?.detectorBaseUrl;
+    $("aiDetectorHint").hidden = !toggle.checked;
+  }
+
+  async function onAiDetectorChange() {
+    const checked = /** @type {HTMLInputElement} */ ($("aiDetectorToggle")).checked;
+    /** @type {BonsaiConfig} */
+    const cfg = await chrome.runtime.sendMessage({ type: "bonsai:getConfig" });
+    const next = { ...cfg, experimentalAiDetector: checked };
+    await chrome.runtime.sendMessage({ type: "bonsai:setConfig", payload: next });
+    $("aiDetectorHint").hidden = !checked;
   }
 
   /** @returns {Promise<BonsaiFilters>} */
@@ -181,6 +200,7 @@
     $("headerSignOutBtn").addEventListener("click", signOut);
     $("openXBtn").addEventListener("click", openX);
     $("hideAdsToggle").addEventListener("change", onHideAdsChange);
+    $("aiDetectorToggle").addEventListener("change", onAiDetectorChange);
     const mutedInput = /** @type {HTMLInputElement} */ ($("mutedInput"));
     mutedInput.addEventListener("keydown", (ev) => {
       if (ev.key !== "Enter" && ev.key !== ",") return;
