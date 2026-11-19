@@ -52,6 +52,25 @@
         <div class="email" id="userEmail"></div>
       </div>
     </div>
+
+    <div class="filters" id="filters">
+      <div class="filters__row">
+        <label class="toggle" for="hideAdsToggle">
+          <span>Hide ads</span>
+          <input type="checkbox" id="hideAdsToggle" />
+          <span class="toggle__switch" aria-hidden="true"></span>
+        </label>
+      </div>
+      <div class="filters__row filters__row--stack">
+        <label class="filters__label" for="mutedInput">Mute words</label>
+        <div class="chips" id="mutedChips" role="list"></div>
+        <input type="text" id="mutedInput" class="filters__input"
+          placeholder="Type a word, press Enter"
+          autocomplete="off" />
+        <p class="filters__hint">Posts matching any word in content, name, or handle get hidden.</p>
+      </div>
+    </div>
+
     <button id="openXBtn" class="btn primary">
       Open X
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><polyline points="7 7 17 7 17 17"/></svg>
