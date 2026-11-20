@@ -4,6 +4,9 @@ DerivedData/
 *.xcuserstate
 *.xcscmblueprint
 build/
+*.xcarchive
+*.ipa
+*.dSYM.zip
 
 # Signing material: never commit
 *.p12
