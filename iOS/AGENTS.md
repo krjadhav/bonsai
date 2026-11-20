@@ -1,20 +1,47 @@
 # Safari Web Extension (iOS, iPadOS, macOS)
 
-Instructions for agents working in `iOS/`. This folder holds the Xcode project that packages the existing Chrome extension in `../extension/` as a Safari Web Extension. The root `AGENTS.md` still applies (versioning, commit format, verification reporting). Where the two conflict for files under `iOS/`, this file wins.
+Instructions for agents working in `iOS/`. This folder holds the Xcode project that packages the existing Chrome extension in `../extension/` as a Safari Web Extension for iPhone and iPad. The root `AGENTS.md` still applies (versioning, commit format, verification reporting). Where the two conflict for files under `iOS/`, this file wins.
 
 Last researched: 2026-11-20. Sources are listed at the bottom. Apple changes Safari extension support every release, so re-check the compatibility page before relying on a version number below.
 
 ## Ground rules
 
 - `../extension/` is the single source of truth for JS, HTML, CSS and icons. Do not fork extension code into `iOS/`. Safari-specific behaviour goes behind feature detection in the shared code, or in a small Safari-only file that the shared manifest loads.
-- Generate the Xcode project with the packager and let it reference `../extension/` (the default). Do not pass `--copy-resources`; copies drift from the Chrome build.
-- Keep `manifest.json` version, `package.json` version, and the Xcode `MARKETING_VERSION` identical. Bump `CURRENT_PROJECT_VERSION` (build number) on every App Store Connect upload; it must be higher than the last uploaded build.
-- Never commit signing material: `*.p12`, `*.mobileprovision`, `*.cer`, App Store Connect API keys, or a hard-coded `DEVELOPMENT_TEAM` that isn't the project's own. Keep `xcuserdata/` and `DerivedData/` out of git (see `iOS/.gitignore`).
-- Xcode, the iOS Simulator and device installs only run on macOS. In a Linux container you can edit files and review the manifest, but you cannot build or verify. Say so in your report instead of claiming the extension works on iOS.
+- The appex gets the web extension from a "Copy Web Extension" script phase that rsyncs `../extension/` (minus `*.d.ts`) into the bundle at build time. New files in `extension/` ship without touching the project. Never copy extension files into `iOS/`.
+- Keep `manifest.json` version, `package.json` version, and `MARKETING_VERSION` in `Config/Base.xcconfig` identical. `npm run version:sync` writes all three and `npm run preflight` fails on a mismatch. Bump `CURRENT_PROJECT_VERSION` (build number) on every App Store Connect upload; it must be higher than the last uploaded build.
+- Never commit signing material: `*.p12`, `*.mobileprovision`, `*.cer`, App Store Connect API keys, or a `DEVELOPMENT_TEAM`. Team id and any bundle id override go in the git-ignored `Config/Local.xcconfig` (template: `Config/Local.xcconfig.example`). If Xcode's Signing tab writes `DEVELOPMENT_TEAM` into `project.pbxproj`, don't commit that hunk. Keep `xcuserdata/` and `DerivedData/` out of git (see `iOS/.gitignore`).
+- Xcode, the iOS Simulator and device installs only run on macOS. In a Linux container, edit files, run `npm run check` (which includes the Safari sign-in smoke test), and use the `iOS Safari extension` GitHub Actions workflow (`.github/workflows/ios.yml`) to build, install and launch in a simulator. Neither proves the extension works in Safari; say so in your report.
 
-## Creating or rebuilding the project
+## Project layout
 
-Run on a Mac with current Xcode, from the repo root:
+```
+iOS/
+  Bonsai.xcodeproj/          hand-maintained, objectVersion 60 (Xcode 15+), shared scheme "Bonsai"
+  Bonsai/                    containing app: SwiftUI setup screen + Assets.xcassets (AppIcon, AccentColor)
+  Bonsai Extension/          SafariWebExtensionHandler.swift + Info.plist (NSExtension point)
+  Config/Base.xcconfig       MARKETING_VERSION, CURRENT_PROJECT_VERSION, BONSAI_BUNDLE_ID
+  Config/Local.xcconfig      git-ignored: DEVELOPMENT_TEAM, optional BONSAI_BUNDLE_ID override
+```
+
+- Targets: `Bonsai` (iOS app, `$(BONSAI_BUNDLE_ID)`) embeds `Bonsai Extension` (`$(BONSAI_BUNDLE_ID).Extension`). Deployment target iOS 18.0, iPhone and iPad.
+- The app screen shows the version at the top right, per the root versioning rule.
+- The project was written by hand rather than by the packager, so it has no macOS target. To add macOS later, run the packager with `--macos-only --project-location` into a scratch folder and port its macOS target over, or rebuild the project with `--rebuild-project`. Expect to redo the copy phase either way.
+
+## Testing on an iPhone
+
+1. On a Mac with Xcode 16 or newer: `cp iOS/Config/Local.xcconfig.example iOS/Config/Local.xcconfig` and set `DEVELOPMENT_TEAM`. A free Apple ID works for your own device; the install expires after 7 days.
+2. Open `iOS/Bonsai.xcodeproj`, pick the `Bonsai` scheme and your iPhone, Product > Run. The first time, enable Developer Mode on the phone (Settings > Privacy & Security) and trust the developer certificate if asked.
+3. On the phone: Safari > page menu > Manage Extensions > turn on Bonsai. Then open x.com, tap Bonsai in the page menu and allow it on x.com. The welcome tab opens on first enable.
+4. Sign in. Safari asks once more for access to the Bonsai API sign-in page (`bonsai-api-...run.app`); allow it, or the sign-in tab stays open.
+
+One-time setup outside the repo, before step 4 works:
+
+- Google Cloud Console > APIs & Services > Credentials > the OAuth client in `extension/oauth-config.js` > Authorized redirect URIs: add `https://bonsai-api-1000316385691.asia-south1.run.app/auth/safari-callback`.
+- Redeploy the backend so `/auth/safari-callback` and the Safari CORS rule are live (`curl -I <api>/auth/safari-callback` returns 200).
+
+## Packager reference
+
+The current project is hand-written (see Project layout). These commands are for adding macOS or comparing against Apple's template. Run on a Mac with current Xcode, from the repo root:
 
 ```sh
 xcrun safari-web-extension-packager extension \
@@ -27,7 +54,7 @@ xcrun safari-web-extension-packager extension \
 
 - Omit `--ios-only` / `--macos-only` to get both targets. One App Store Connect record covering iOS and macOS also ships to iPad and, as a compatible app, Vision Pro.
 - The packager prints manifest keys the installed Safari ignores. Paste that list into the PR or commit notes and resolve each item using the compatibility section below.
-- To add a platform to an existing project later: `xcrun safari-web-extension-packager --rebuild-project iOS/Bonsai/Bonsai.xcodeproj`.
+- To add a platform to an existing project later: `xcrun safari-web-extension-packager --rebuild-project iOS/Bonsai.xcodeproj`.
 - The tool was previously named `safari-web-extension-converter`. Older guides use that name.
 - App Store Connect also hosts a web-based packager. Prefer the CLI so the project lives in git and is reproducible.
 
@@ -58,8 +85,8 @@ Audit of the `chrome.*` calls in `../extension/` against Apple's compatibility p
 
 | Bonsai uses | Safari status | Action |
 | --- | --- | --- |
-| `chrome.identity.getAuthToken`, `launchWebAuthFlow`, `getRedirectURL` | Not supported. Apple says to start the OAuth flow in a new tab. | Sign-in must be redesigned. See below. |
-| `chrome.webRequest.onBeforeRequest` | Not supported on iOS. macOS: observe-only, no blocking, no `opt_extraInfoSpec`. Non-persistent background content had webRequest listener problems after Safari 18.4. | Do not depend on it for any flow. |
+| `chrome.identity.getAuthToken`, `launchWebAuthFlow`, `getRedirectURL` | Not supported. Apple says to start the OAuth flow in a new tab. | Done: `oauth-config.js` feature-detects and uses the API callback page. See below. |
+| `chrome.webRequest.onBeforeRequest` | Not supported on iOS. macOS: observe-only, no blocking, no `opt_extraInfoSpec`. Non-persistent background content had webRequest listener problems after Safari 18.4. | Done: only registered on Chrome. Do not depend on it for new flows. |
 | `chrome.webNavigation.onBeforeNavigate` | Supported (16+). `onHistoryStateUpdated`, `onCreatedNavigationTarget`, `onReferenceFragmentUpdated`, `onTabReplaced`, `transitionType` are not. | OK. Don't rely on history-state events for X's SPA routing; keep the content script's own URL observer. |
 | `chrome.windows.update` | `windows.create/remove/update` not supported on iOS. | Already wrapped in `.catch()` in `popup.js`. Keep it optional. |
 | `chrome.tabs.query({ url })` | Reading tab `url` needs host permission for that site. | Expect empty results before the user grants x.com access. |
@@ -76,12 +103,16 @@ When adding a new API, check it on Apple's compatibility page and MDN's browser-
 
 ### Sign-in on Safari
 
-The current Chrome flow opens Google OAuth, catches the 302 to `<ext-id>.chromiumapp.org` with `webRequest.onBeforeRequest`, and reads the token from the URL fragment. On Safari, `identity` doesn't exist, `chromiumapp.org` means nothing, and webRequest is gone on iOS. Two options:
+Chrome opens Google OAuth, catches the 302 to `<ext-id>.chromiumapp.org` with `webRequest.onBeforeRequest`, and reads the token from the URL fragment. Safari has no `identity`, `chromiumapp.org` means nothing there, and iOS has no webRequest. What the shared code does instead:
 
-1. Web redirect page (preferred, no Swift). Register an HTTPS redirect URI on the Bonsai backend, e.g. `https://<api-host>/auth/safari/callback`. Open the OAuth URL with `tabs.create`. The callback page hands the result to the extension through a content script matched only on that callback path, which calls `runtime.sendMessage` and the background closes the tab. Use authorization code + PKCE and exchange the code on the backend. Do not put access tokens in URL fragments that a page script can read, and validate `state`.
-2. Native. The containing app runs `ASWebAuthenticationSession`, stores the result in a shared App Group, and the extension reads it through `browser.runtime.sendNativeMessage` from the background (content scripts can't send native messages). The iOS app cannot push messages to the extension's JS, so the extension has to poll or ask on demand. This is more moving parts; only choose it if option 1 is blocked.
+1. `extension/oauth-config.js` checks for `chrome.identity.getRedirectURL`. If it's missing, the redirect URI is `https://<api>/auth/safari-callback`, served by `backend/bonsai/main.py` as a static page with `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and a CSP that allows no scripts.
+2. Google sends the token in the fragment, which never reaches the server. `extension/oauth-callback.js` (a content script matched only on that path) strips the fragment from the address bar and sends the URL to the background as `bonsai:oauthRedirect`.
+3. The background accepts the message only on Safari, only from its own extension id, only from a tab, and only if the URL starts with the redirect URI. Then the same `handleRedirectUrl` as Chrome stores the user and closes the tab. Silent reauth (`prompt=none`) uses the same path.
+4. `npm run check:safari` runs `background.js` with a fake `chrome` that lacks `identity` and `webRequest` and checks this whole path, including rejecting spoofed messages.
 
-Safari's extension origin (`safari-web-extension://<UUID>`) can change between builds and installs. Never register it as an OAuth redirect or allow-list it in backend CORS. Authenticate requests with the token instead.
+This keeps parity with Chrome's implicit flow (access token in the fragment). A later hardening step is authorization code + PKCE with the exchange on the backend; do it for both browsers at once.
+
+Safari's extension origin (`safari-web-extension://<UUID>`) differs per install, so it can't be listed in `ALLOWED_ORIGINS` or used as an OAuth redirect. The backend accepts any `safari-web-extension://` origin through `allow_origin_regex`. That's safe because requests authenticate with a bearer token and CORS is configured without credentials.
 
 App Review: Guideline 4.8 (Login Services) may require offering Sign in with Apple when an app offers Google sign-in for the primary account. Check the current guideline text before submitting and record the decision in `iOS/APPSTORE.md`.
 
@@ -106,8 +137,8 @@ App Review: Guideline 4.8 (Login Services) may require offering Sign in with App
 
 Static checks (`npm run check` at the root) still gate the shared code. On top of that, for any change touching Safari behaviour, report which of these you actually ran:
 
-1. Packager run with no new unsupported-key warnings (or each one explained).
-2. `xcodebuild -scheme "Bonsai (iOS)" -destination 'platform=iOS Simulator,name=<device>' build` succeeds.
+1. The `iOS Safari extension` workflow is green for the pushed commit (build, appex contents, version match, simulator install and launch).
+2. Locally on a Mac: `xcodebuild -project iOS/Bonsai.xcodeproj -scheme Bonsai -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build` succeeds.
 3. In the simulator: extension enabled, x.com access granted, onboarding completes, sign-in completes, a tweet gets the Yes/No controls, and a capture reaches the backend.
 4. Force-quit Safari or leave it idle for several minutes, return, and confirm the background still answers messages and alarms still fire.
 5. Same flow in macOS Safari (temporary extension is enough).
