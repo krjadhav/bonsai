@@ -15,3 +15,6 @@ build/
 *.cer
 *.p8
 AuthKey_*.p8
+
+# Personal signing config (see Config/Local.xcconfig.example)
+Config/Local.xcconfig

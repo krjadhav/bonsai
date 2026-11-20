@@ -1,0 +1,9 @@
+// Copy to Local.xcconfig (git-ignored) and fill in.
+//
+// Your Apple team id: Xcode > Settings > Accounts > select the team, or
+// developer.apple.com > Membership. A free personal team works for running
+// on your own iPhone (the build expires after 7 days).
+DEVELOPMENT_TEAM = ABCDE12345
+
+// Only if Xcode reports the default bundle id is unavailable:
+// BONSAI_BUNDLE_ID = com.yourname.bonsai

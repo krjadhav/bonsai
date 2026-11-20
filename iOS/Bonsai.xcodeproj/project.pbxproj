@@ -1,0 +1,459 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		C588AD890D5C60F8D52C968D /* BonsaiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBB7D289C8CF4138DB9F344E /* BonsaiApp.swift */; };
+		CA8775025111D16757F20CCB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB711046549B857B5B17BF06 /* ContentView.swift */; };
+		0CD5F00ADB4F8ADDDB813E5A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 40C085114067DB46161AF502 /* Assets.xcassets */; };
+		1FAA5786E2ACAFFF11A15F1D /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2933D06045B251F9AE7D0C64 /* SafariWebExtensionHandler.swift */; };
+		CE1B9080AFA572321FECEB7C /* Bonsai Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B8A268292B424B518BF7D1CD /* Bonsai Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4B8E0790BDF06839DBB03A66 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6FBF170BCE9C13DB49299C84 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5AFA0AFF03DBE5B73668AF50;
+			remoteInfo = "Bonsai Extension";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7CF4F50B33D20E24292A4A95 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				CE1B9080AFA572321FECEB7C /* Bonsai Extension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		426CFAF1C9B00F173DFE6020 /* Bonsai.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Bonsai.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B8A268292B424B518BF7D1CD /* Bonsai Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Bonsai Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EBB7D289C8CF4138DB9F344E /* BonsaiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonsaiApp.swift; sourceTree = "<group>"; };
+		BB711046549B857B5B17BF06 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		40C085114067DB46161AF502 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		2933D06045B251F9AE7D0C64 /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
+		E0D45CFE19A0783108FCA5B0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		BA95C3A45B8D5876AB950FF8 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		18F93CD194CB78FA0E14A099 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D56E24A026E63C7C4533E87B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		B83C11C1B33C5370E63C34CC /* mainGroup */ = {
+			isa = PBXGroup;
+			children = (
+				81891F509A596FE98997CA1C /* Bonsai */,
+				29F5C53512C0918722F15588 /* Bonsai Extension */,
+				4A1DA710BA1DAA3395F20348 /* Config */,
+				8A39CAF25736EEAEF1F4107E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		81891F509A596FE98997CA1C /* Bonsai */ = {
+			isa = PBXGroup;
+			children = (
+				EBB7D289C8CF4138DB9F344E /* BonsaiApp.swift */,
+				BB711046549B857B5B17BF06 /* ContentView.swift */,
+				40C085114067DB46161AF502 /* Assets.xcassets */,
+			);
+			path = Bonsai;
+			sourceTree = "<group>";
+		};
+		29F5C53512C0918722F15588 /* Bonsai Extension */ = {
+			isa = PBXGroup;
+			children = (
+				2933D06045B251F9AE7D0C64 /* SafariWebExtensionHandler.swift */,
+				E0D45CFE19A0783108FCA5B0 /* Info.plist */,
+			);
+			path = "Bonsai Extension";
+			sourceTree = "<group>";
+		};
+		4A1DA710BA1DAA3395F20348 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				BA95C3A45B8D5876AB950FF8 /* Base.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		8A39CAF25736EEAEF1F4107E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				426CFAF1C9B00F173DFE6020 /* Bonsai.app */,
+				B8A268292B424B518BF7D1CD /* Bonsai Extension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		1745166CC96DFA149E521343 /* Bonsai */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 218559DC6D99C46BC8722870 /* Build configuration list for PBXNativeTarget "Bonsai" */;
+			buildPhases = (
+				664E633A3068F01F8A77138D /* Sources */,
+				18F93CD194CB78FA0E14A099 /* Frameworks */,
+				D204C6D8A8F387C73195BFA6 /* Resources */,
+				7CF4F50B33D20E24292A4A95 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				85F41CA9EF20E6B675705350 /* PBXTargetDependency */,
+			);
+			name = Bonsai;
+			productName = Bonsai;
+			productReference = 426CFAF1C9B00F173DFE6020 /* Bonsai.app */;
+			productType = "com.apple.product-type.application";
+		};
+		5AFA0AFF03DBE5B73668AF50 /* Bonsai Extension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4E028688C0F3FA9A405CCCDC /* Build configuration list for PBXNativeTarget "Bonsai Extension" */;
+			buildPhases = (
+				E256A53F125053C85635C40F /* Sources */,
+				D56E24A026E63C7C4533E87B /* Frameworks */,
+				430266FA602A5CB1D51F8C6A /* Resources */,
+				F4E23DC5D76A363B91C38348 /* Copy Web Extension */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Bonsai Extension";
+			productName = "Bonsai Extension";
+			productReference = B8A268292B424B518BF7D1CD /* Bonsai Extension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		6FBF170BCE9C13DB49299C84 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					1745166CC96DFA149E521343 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					5AFA0AFF03DBE5B73668AF50 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = DA451A5D5BF88B12BA92A02F /* Build configuration list for PBXProject "Bonsai" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = B83C11C1B33C5370E63C34CC;
+			productRefGroup = 8A39CAF25736EEAEF1F4107E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1745166CC96DFA149E521343 /* Bonsai */,
+				5AFA0AFF03DBE5B73668AF50 /* Bonsai Extension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D204C6D8A8F387C73195BFA6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0CD5F00ADB4F8ADDDB813E5A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		430266FA602A5CB1D51F8C6A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		F4E23DC5D76A363B91C38348 /* Copy Web Extension */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Web Extension";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "# Copy the shared web extension (../extension) into the appex. A script\n# instead of per-file references so files added to extension/ ship without\n# touching this project. Type declarations and OS junk are left out.\nset -euo pipefail\nSRC=\"${PROJECT_DIR}/../extension/\"\nDEST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/\"\nif [ ! -f \"${SRC}manifest.json\" ]; then\n  echo \"error: ${SRC}manifest.json not found\" >&2\n  exit 1\nfi\nmkdir -p \"${DEST}\"\nrsync -a --exclude '*.d.ts' --exclude '.DS_Store' \"${SRC}\" \"${DEST}\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		664E633A3068F01F8A77138D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C588AD890D5C60F8D52C968D /* BonsaiApp.swift in Sources */,
+				CA8775025111D16757F20CCB /* ContentView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E256A53F125053C85635C40F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1FAA5786E2ACAFFF11A15F1D /* SafariWebExtensionHandler.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		85F41CA9EF20E6B675705350 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5AFA0AFF03DBE5B73668AF50 /* Bonsai Extension */;
+			targetProxy = 4B8E0790BDF06839DBB03A66 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		3D719E462CBE157170BC8CE3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C8F33A77CAC3A37BA477F93B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		CD04C092AF374F80F3969B15 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA95C3A45B8D5876AB950FF8 /* Base.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Bonsai;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = "$(MARKETING_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BONSAI_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Debug;
+		};
+		115C44483F6C569AE829280A /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA95C3A45B8D5876AB950FF8 /* Base.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Bonsai;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = "$(MARKETING_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BONSAI_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Release;
+		};
+		F54D66922B5357AB18658D8E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA95C3A45B8D5876AB950FF8 /* Base.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Bonsai Extension/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Bonsai;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(MARKETING_VERSION)";
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BONSAI_BUNDLE_ID).Extension";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Debug;
+		};
+		C12EB427DF6BBF69E55AAF0B /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA95C3A45B8D5876AB950FF8 /* Base.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Bonsai Extension/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Bonsai;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(MARKETING_VERSION)";
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BONSAI_BUNDLE_ID).Extension";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		DA451A5D5BF88B12BA92A02F /* Build configuration list for PBXProject "Bonsai" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3D719E462CBE157170BC8CE3 /* Debug */,
+				C8F33A77CAC3A37BA477F93B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		218559DC6D99C46BC8722870 /* Build configuration list for PBXNativeTarget "Bonsai" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CD04C092AF374F80F3969B15 /* Debug */,
+				115C44483F6C569AE829280A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4E028688C0F3FA9A405CCCDC /* Build configuration list for PBXNativeTarget "Bonsai Extension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F54D66922B5357AB18658D8E /* Debug */,
+				C12EB427DF6BBF69E55AAF0B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 6FBF170BCE9C13DB49299C84 /* Project object */;
+}

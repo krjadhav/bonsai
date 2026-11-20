@@ -1,0 +1,17 @@
+// Shared build settings for the Bonsai app and its Safari extension.
+//
+// MARKETING_VERSION must match package.json and extension/manifest.json.
+// `npm run version:sync` updates it and `npm run preflight` checks it.
+MARKETING_VERSION = 1.2.0
+
+// Bump for every App Store Connect / TestFlight upload.
+CURRENT_PROJECT_VERSION = 1
+
+// The extension's bundle id is this plus ".Extension". Bundle ids are unique
+// across all Apple developer accounts; if Xcode says this one is taken,
+// override it in Local.xcconfig.
+BONSAI_BUNDLE_ID = app.bonsai.feedfilter
+
+// Personal signing settings live in Local.xcconfig, which git ignores.
+// Copy Local.xcconfig.example to Local.xcconfig and set DEVELOPMENT_TEAM.
+#include? "Local.xcconfig"
