@@ -236,7 +236,8 @@
 
   /**
    * Open Google's OAuth consent URL in a new tab. The service worker
-   * intercepts the chromiumapp.org redirect, stores the user, and closes
+   * intercepts the redirect (chromiumapp.org on Chrome, the API's
+   * /auth/safari-callback page on Safari), stores the user, and closes
    * the auth tab. We detect completion via chrome.storage.onChanged.
    */
   async function signIn() {
@@ -244,13 +245,9 @@
     btn.disabled = true;
     $("signInHint").hidden = false;
     try {
-      const manifest = chrome.runtime.getManifest();
-      const clientId = manifest.oauth2?.client_id;
-      if (!clientId || clientId.startsWith("REPLACE_")) {
-        throw new Error("oauth2.client_id missing or placeholder in manifest.json");
-      }
-      const scopes = (manifest.oauth2?.scopes || ["openid", "email", "profile"]).join(" ");
-      const redirectUri = chrome.identity.getRedirectURL();
+      const clientId = bonsaiOAuth.clientId();
+      const scopes = bonsaiOAuth.scopes().join(" ");
+      const redirectUri = bonsaiOAuth.redirectUri;
       const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
       authUrl.searchParams.set("client_id", clientId);
       authUrl.searchParams.set("response_type", "token");

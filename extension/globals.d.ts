@@ -88,3 +88,18 @@ interface BonsaiDetectorResult {
   label: string;
   confidence: number;
 }
+
+interface BonsaiOAuthConfig {
+  // Where Google sends the user after sign-in for this browser.
+  redirectUri: string;
+  // The API-hosted landing page used when chrome.identity is missing (Safari).
+  safariRedirectUri: string;
+  // True when running without chrome.identity (Safari).
+  usesSafariRedirect: boolean;
+  clientId(): string;
+  scopes(): string[];
+}
+
+// Set by extension/oauth-config.js.
+// eslint-disable-next-line no-var
+declare var bonsaiOAuth: BonsaiOAuthConfig;

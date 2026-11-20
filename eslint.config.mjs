@@ -22,6 +22,7 @@ export default [
         ...globals.browser,
         ...globals.webextensions,
         chrome: "readonly",
+        bonsaiOAuth: "readonly",
       },
     },
     rules: {

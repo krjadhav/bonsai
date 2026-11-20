@@ -51,6 +51,15 @@
         "content.css"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://bonsai-api-1000316385691.asia-south1.run.app/auth/safari-callback*"
+      ],
+      "js": [
+        "oauth-callback.js"
+      ],
+      "run_at": "document_start"
     }
   ],
   "oauth2": {

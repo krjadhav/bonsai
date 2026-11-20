@@ -1,10 +1,11 @@
 // @ts-check
 // Bonsai background service worker (MV3, module).
-// - Catches the OAuth redirect to <ext-id>.chromiumapp.org and stores the user.
+// - Catches the OAuth redirect (Chrome: <ext-id>.chromiumapp.org; Safari: the
+//   API's /auth/safari-callback page via oauth-callback.js) and stores the user.
 // - Routes messages between content script / popup.
 // - Sends captures to the backend (/posts) for persistence when signed in.
 
-export {}; // tell TS this file is a module, so top-level decls don't clash
+import "./oauth-config.js"; // sets globalThis.bonsaiOAuth
 
 const STORAGE_KEY = "bonsaiCaptures";
 const USER_KEY = "bonsaiUser";
@@ -120,7 +121,13 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 //     Playwright CDP trace confirmed only webNavigation.onErrorOccurred
 //     fires (not onBeforeNavigate) for the 302 target.
 // ---------------------------------------------------------------------------
-const OAUTH_REDIRECT_URI = chrome.identity.getRedirectURL();
+//
+// Safari has neither chrome.identity nor (on iOS) webRequest. There the
+// redirect lands on a real HTTPS page served by the API, oauth-callback.js
+// forwards the URL with a bonsai:oauthRedirect message, and the same
+// handleRedirectUrl below finishes sign-in. See iOS/AGENTS.md.
+// ---------------------------------------------------------------------------
+const OAUTH_REDIRECT_URI = bonsaiOAuth.redirectUri;
 
 /**
  * Build the Google OAuth consent / silent-reauth URL. onboarding.js has its
@@ -130,10 +137,8 @@ const OAUTH_REDIRECT_URI = chrome.identity.getRedirectURL();
  * @returns {string}
  */
 function buildAuthUrl(promptMode) {
-  const manifest = chrome.runtime.getManifest();
-  const clientId = manifest.oauth2?.client_id;
-  if (!clientId) throw new Error("oauth2.client_id missing from manifest");
-  const scopes = (manifest.oauth2?.scopes || ["openid", "email", "profile"]).join(" ");
+  const clientId = bonsaiOAuth.clientId();
+  const scopes = bonsaiOAuth.scopes().join(" ");
   const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   authUrl.searchParams.set("client_id", clientId);
   authUrl.searchParams.set("response_type", "token");
@@ -280,11 +285,20 @@ async function completeSignIn(token) {
   return user;
 }
 
+// The webNavigation fallback and the Safari content script can both report
+// the same redirect. Handle each URL once.
+let lastHandledRedirectUrl = "";
+
 /**
  * @param {string} url
  * @param {number | undefined} tabId
  */
 function handleRedirectUrl(url, tabId) {
+  if (url === lastHandledRedirectUrl) {
+    if (tabId !== undefined && tabId >= 0) chrome.tabs.remove(tabId).catch(() => {});
+    return;
+  }
+  lastHandledRedirectUrl = url;
   const hash = url.split("#")[1] || "";
   const params = new URLSearchParams(hash);
   // prompt=none errors can also land in the query string; check both.
@@ -314,18 +328,22 @@ function handleRedirectUrl(url, tabId) {
   completeSignIn(token).catch((e) => console.error("completeSignIn failed", e));
 }
 
-chrome.webRequest.onBeforeRequest.addListener(
-  /** @param {chrome.webRequest.OnBeforeRequestDetails} details */
-  (details) => {
-    if (details.type !== "main_frame") return undefined;
-    if (!details.url.startsWith(OAUTH_REDIRECT_URI)) return undefined;
-    handleRedirectUrl(details.url, details.tabId);
-    return undefined;
-  },
-  { urls: [`${OAUTH_REDIRECT_URI}*`] },
-);
+// Chrome only: Safari on iOS has no webRequest, and Safari never sees the
+// chromiumapp.org redirect.
+if (!bonsaiOAuth.usesSafariRedirect && chrome.webRequest?.onBeforeRequest) {
+  chrome.webRequest.onBeforeRequest.addListener(
+    /** @param {chrome.webRequest.OnBeforeRequestDetails} details */
+    (details) => {
+      if (details.type !== "main_frame") return undefined;
+      if (!details.url.startsWith(OAUTH_REDIRECT_URI)) return undefined;
+      handleRedirectUrl(details.url, details.tabId);
+      return undefined;
+    },
+    { urls: [`${OAUTH_REDIRECT_URI}*`] },
+  );
+}
 
-chrome.webNavigation.onBeforeNavigate.addListener(
+chrome.webNavigation?.onBeforeNavigate.addListener(
   (details) => {
     if (details.frameId !== 0) return;
     if (!details.url.startsWith(OAUTH_REDIRECT_URI)) return;
@@ -771,10 +789,23 @@ async function detectPosts(items) {
 // ---------------------------------------------------------------------------
 // Message routing
 // ---------------------------------------------------------------------------
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     try {
       switch (msg?.type) {
+        case "bonsai:oauthRedirect": {
+          // Sent by oauth-callback.js on the Safari landing page. Only trust
+          // our own content script running in a tab on the redirect URI.
+          const fromOwnTab = sender.id === chrome.runtime.id && sender.tab?.id !== undefined;
+          const url = typeof msg.url === "string" ? msg.url : "";
+          if (!bonsaiOAuth.usesSafariRedirect || !fromOwnTab || !url.startsWith(OAUTH_REDIRECT_URI)) {
+            sendResponse({ ok: false });
+            break;
+          }
+          handleRedirectUrl(url, sender.tab.id);
+          sendResponse({ ok: true });
+          break;
+        }
         case "bonsai:completeSignIn":
           sendResponse(await completeSignIn(msg.token));
           break;
