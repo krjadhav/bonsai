@@ -1,0 +1,92 @@
+name: iOS Safari extension
+
+# Builds iOS/Bonsai.xcodeproj for the iOS Simulator (unsigned), checks the
+# web extension landed in the appex, then installs and launches the app in a
+# simulator. Does not sign, archive, or upload anything.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "iOS/**"
+      - "extension/**"
+      - ".github/workflows/ios.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      PRODUCTS: build/Build/Products/Debug-iphonesimulator
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Build for iOS Simulator
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project iOS/Bonsai.xcodeproj \
+            -scheme Bonsai \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Check the extension bundle
+        run: |
+          set -euo pipefail
+          APP="$PRODUCTS/Bonsai.app"
+          APPEX="$APP/PlugIns/Bonsai Extension.appex"
+          for f in manifest.json background.js content.js oauth-config.js oauth-callback.js \
+                   popup.html onboarding.html icons/bonsai-128.png; do
+            test -f "$APPEX/$f" || { echo "missing $f in appex"; exit 1; }
+          done
+          test ! -e "$APPEX/globals.d.ts" || { echo "globals.d.ts should not ship"; exit 1; }
+          /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$APPEX/Info.plist" \
+            | grep -qx 'com.apple.Safari.web-extension'
+          app_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")
+          ext_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APPEX/Info.plist")
+          pkg_version=$(node -p "require('./package.json').version")
+          echo "app=$app_version extension=$ext_version package.json=$pkg_version"
+          test "$app_version" = "$pkg_version"
+          test "$ext_version" = "$pkg_version"
+
+      - name: Install and launch in a simulator
+        run: |
+          set -euo pipefail
+          UDID=$(xcrun simctl list devices available -j \
+            | node -e 'const d=JSON.parse(require("fs").readFileSync(0)).devices;
+                for (const [rt, list] of Object.entries(d)) {
+                  if (!rt.includes("iOS")) continue;
+                  const p = list.find((x) => x.name.startsWith("iPhone"));
+                  if (p) { console.log(p.udid); break; }
+                }')
+          test -n "$UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PRODUCTS/Bonsai.app/Info.plist")
+          xcrun simctl install "$UDID" "$PRODUCTS/Bonsai.app"
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+          sleep 5
+          xcrun simctl io "$UDID" screenshot app.png
+          echo "Safari web extensions the simulator knows about:"
+          xcrun simctl spawn "$UDID" pluginkit -mAvvv -p com.apple.Safari.web-extension || true
+
+      - name: Upload screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-screenshot
+          path: app.png
+          if-no-files-found: ignore
