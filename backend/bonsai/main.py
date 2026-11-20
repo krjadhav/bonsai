@@ -2,6 +2,8 @@
 
 Routes:
   GET    /health             -> liveness check, no auth
+  GET    /auth/safari-callback -> OAuth redirect landing page for the Safari
+                                  build (no auth; token stays in the fragment)
   POST   /posts              -> upsert a single capture (auth required)
   GET    /posts              -> list this user's captures (auth required)
   DELETE /posts/{post_id}    -> remove a single capture (auth required)
@@ -22,6 +24,7 @@ from datetime import UTC, datetime
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from google.cloud.firestore import SERVER_TIMESTAMP
 from google.cloud.firestore_v1.base_query import FieldFilter
 
@@ -43,9 +46,14 @@ log = logging.getLogger("bonsai")
 app = FastAPI(title="Bonsai ingest", version="0.3.0")
 
 settings = get_settings()
+SAFARI_EXTENSION_ORIGIN_REGEX = r"safari-web-extension://[0-9A-Fa-f-]+"
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.allowed_origins) or ["*"],
+    # Safari gives every install its own random extension origin, so it can't
+    # be listed in ALLOWED_ORIGINS. Auth is a bearer token (no cookies), so
+    # matching the scheme is enough.
+    allow_origin_regex=SAFARI_EXTENSION_ORIGIN_REGEX,
     allow_credentials=False,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
@@ -55,6 +63,45 @@ app.add_middleware(
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "version": app.version}
+
+
+# Google redirects the Safari build here after sign-in, with the access token
+# in the URL fragment. Browsers never send the fragment to the server, so this
+# handler only serves a static page; the extension's content script
+# (extension/oauth-callback.js) reads the fragment and hands it to the
+# background, which closes the tab. Chrome keeps using chromiumapp.org.
+SAFARI_CALLBACK_HTML = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bonsai sign-in</title>
+<style>
+  body { font: 16px -apple-system, system-ui, sans-serif; margin: 0; padding: 48px 24px;
+         text-align: center; color: #1f2a1f; background: #f6f8f3; }
+  @media (prefers-color-scheme: dark) { body { color: #e6ede3; background: #141a14; } }
+</style>
+</head>
+<body>
+<h1>Signing you in to Bonsai</h1>
+<p>This tab closes on its own. If it stays open, tap the Bonsai extension
+in Safari and allow it on this site, then reload.</p>
+</body>
+</html>
+"""
+
+
+@app.get("/auth/safari-callback", response_class=HTMLResponse, include_in_schema=False)
+async def safari_oauth_callback() -> HTMLResponse:
+    return HTMLResponse(
+        SAFARI_CALLBACK_HTML,
+        headers={
+            "Cache-Control": "no-store",
+            "Referrer-Policy": "no-referrer",
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @app.post("/posts", response_model=PostOut)
