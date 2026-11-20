@@ -1,0 +1,14 @@
+# Xcode user state and build output
+xcuserdata/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+build/
+
+# Signing material: never commit
+*.p12
+*.mobileprovision
+*.provisionprofile
+*.cer
+*.p8
+AuthKey_*.p8
