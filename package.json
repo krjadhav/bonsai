@@ -14,7 +14,7 @@
     "check": "npm run preflight && npm run lint && npm run typecheck && npm run audit && npm run check:safari && npm run check:load",
     "prezip": "npm run check",
     "zip": "cd extension && zip -r ../dist/bonsai-extension.zip . -x '*.DS_Store'",
-    "version:sync": "node -e \"const p=require('./package.json');const fs=require('fs');const m=JSON.parse(fs.readFileSync('extension/manifest.json','utf8'));m.version=p.version;fs.writeFileSync('extension/manifest.json',JSON.stringify(m,null,2)+'\\n');console.log('synced',p.version);\""
+    "version:sync": "node -e \"const p=require('./package.json');const fs=require('fs');const m=JSON.parse(fs.readFileSync('extension/manifest.json','utf8'));m.version=p.version;fs.writeFileSync('extension/manifest.json',JSON.stringify(m,null,2)+'\\n');const x='iOS/Config/Base.xcconfig';if(fs.existsSync(x)){fs.writeFileSync(x,fs.readFileSync(x,'utf8').replace(/^MARKETING_VERSION = .*$/m,'MARKETING_VERSION = '+p.version));}console.log('synced',p.version);\""
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -6,7 +6,8 @@
 //   1. JS references DOM ids that don't exist in any HTML — the TypeError
 //      source that keeps biting us (null.addEventListener / null.hidden).
 //   2. manifest.json references files that don't exist on disk.
-//   3. manifest.json version diverges from package.json version.
+//   3. manifest.json or the iOS Xcode MARKETING_VERSION diverges from the
+//      package.json version.
 //   4. HTML ids collide across the same document.
 //
 // Exit 0 = ship it. Exit 1 = fix first. Keep this script dependency-free so
@@ -177,6 +178,15 @@ if (manifest) {
 const pkg = JSON.parse(read(join(ROOT, "package.json")));
 if (manifest && pkg.version !== manifest.version) {
   fail(`version mismatch: package.json=${pkg.version} vs extension/manifest.json=${manifest.version}`);
+}
+const XCCONFIG = join(ROOT, "iOS", "Config", "Base.xcconfig");
+if (existsSync(XCCONFIG)) {
+  const xcVersion = /^MARKETING_VERSION\s*=\s*(\S+)/m.exec(read(XCCONFIG))?.[1];
+  if (xcVersion !== pkg.version) {
+    fail(
+      `version mismatch: package.json=${pkg.version} vs iOS/Config/Base.xcconfig MARKETING_VERSION=${xcVersion} (run npm run version:sync)`,
+    );
+  }
 }
 
 // ---------- 5. HTML -> manifest popup script tag coherence ----------
